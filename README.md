@@ -1,5 +1,25 @@
-# EventProFrontend
+# EventProWeb
 Frontend Development
+
+## Role in the system
+Next.js web app that serves as the backend and admin/organizer dashboard for EventPro. Org Admins manage members and Frontmen, Organizers create events and manage participants, and this app's `api/scanner/*` endpoints are called by `EventProMobile` to verify and mark attendance. It also owns the PostgreSQL schema (via Prisma) and sends participants their QR code invitations by email.
+
+## Tech Stack & Core Technologies
+* **Framework:** Next.js 14+ (App Router, Server Actions & API Route Handlers)
+* **Language:** TypeScript
+* **Database:** PostgreSQL
+* **ORM:** Prisma ORM
+* **Authentication & Authorization:** NextAuth.js / JWT with Role-Based Access Control (RBAC)
+* **Styling & UI:** Tailwind CSS, shadcn/ui, Lucide React Icons
+* **Email Delivery:** Resend / Nodemailer (for QR invitation delivery)
+* **QR Generation & Cryptography:** `qrcode` & Node.js `crypto` / `jose` (for HMAC/JWT-signed secure tokens)
+
+### DevOps & Infrastructure
+* **Architecture:** Multi-Repository (Decoupled Web & Mobile clients)
+* **Database Hosting:** Supabase / Neon / AWS RDS (PostgreSQL)
+* **Web Hosting:** Vercel
+* **Mobile Distribution:** Expo Application Services (EAS Build)
+* **Version Control:** Git & GitHub
 
 ## folder arch
 ```text
