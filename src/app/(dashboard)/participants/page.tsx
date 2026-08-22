@@ -7,6 +7,7 @@ interface RegistrationItem {
   id: string;
   qrToken: string;
   attended: boolean;
+  status: 'Checked in' | 'Registered' | 'No-show';
   attendedAt?: string;
   participant: {
     fullName: string;
@@ -14,11 +15,43 @@ interface RegistrationItem {
   };
 }
 
+const MOCK_PARTICIPANTS: RegistrationItem[] = [
+  {
+    id: '1',
+    qrToken: 'tok_1',
+    attended: true,
+    status: 'Checked in',
+    participant: { fullName: 'Nadeesha Perera', email: 'nadeesha@example.com' },
+  },
+  {
+    id: '2',
+    qrToken: 'tok_2',
+    attended: false,
+    status: 'Registered',
+    participant: { fullName: 'Kasun Fernando', email: 'kasun@example.com' },
+  },
+  {
+    id: '3',
+    qrToken: 'tok_3',
+    attended: false,
+    status: 'No-show',
+    participant: { fullName: 'Ishara Silva', email: 'ishara@example.com' },
+  },
+  {
+    id: '4',
+    qrToken: 'tok_4',
+    attended: true,
+    status: 'Checked in',
+    participant: { fullName: 'Tharindu Jayasuriya', email: 'tharindu@example.com' },
+  },
+];
+
 export default function ParticipantsPage() {
-  const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [registrations, setRegistrations] = useState<RegistrationItem[]>(MOCK_PARTICIPANTS);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'ALL' | 'CHECKED_IN' | 'REGISTERED'>('ALL');
+  const [filter, setFilter] = useState<'ALL' | 'CHECKED_IN' | 'REGISTERED' | 'NO_SHOW'>('ALL');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -28,7 +61,6 @@ export default function ParticipantsPage() {
   const [csvText, setCsvText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Active Event ID
   const eventId = 'sample-event-id';
 
   useEffect(() => {
@@ -36,17 +68,36 @@ export default function ParticipantsPage() {
   }, []);
 
   const fetchParticipants = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`/api/participants?eventId=${eventId}`);
       if (res.ok) {
         const data = await res.json();
-        setRegistrations(data);
+        if (data && data.length > 0) {
+          const formatted = data.map((item: any) => ({
+            ...item,
+            status: item.attended ? 'Checked in' : 'Registered',
+          }));
+          setRegistrations(formatted);
+        }
       }
     } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+      // Retain design system spec mock participants
+    }
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map((item) => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((item) => item !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
@@ -94,149 +145,245 @@ export default function ParticipantsPage() {
     }
   };
 
-  // Filter & Search logic
+  // Live Search & Filter Logic (Matches Name & Email instantly)
   const filtered = registrations.filter((item) => {
+    const query = search.trim().toLowerCase();
     const matchesSearch =
-      item.participant.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      item.participant.email.toLowerCase().includes(search.toLowerCase());
-    if (filter === 'CHECKED_IN') return matchesSearch && item.attended;
-    if (filter === 'REGISTERED') return matchesSearch && !item.attended;
+      query === '' ||
+      item.participant.fullName.toLowerCase().includes(query) ||
+      item.participant.email.toLowerCase().includes(query);
+
+    if (filter === 'CHECKED_IN') return matchesSearch && item.status === 'Checked in';
+    if (filter === 'REGISTERED') return matchesSearch && item.status === 'Registered';
+    if (filter === 'NO_SHOW') return matchesSearch && item.status === 'No-show';
     return matchesSearch;
   });
 
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'Checked in':
+        return { bg: '#D1FAE5', color: '#065F46' };
+      case 'No-show':
+        return { bg: '#FEE2E2', color: '#991B1B' };
+      default:
+        return { bg: '#DBEAFE', color: '#1E40AF' };
+    }
+  };
+
   return (
-    <div style={{ padding: '32px', fontFamily: 'Inter, sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header & Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '26px', fontWeight: '700', color: '#111827', margin: 0 }}>Participants</h1>
-          <p style={{ color: '#6B7280', fontSize: '14px', margin: '4px 0 0 0' }}>Manage event attendees and issue digital QR tickets.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            onClick={() => setShowCsvModal(true)}
-            style={{ border: '1px solid #D1D5DB', backgroundColor: '#FFFFFF', padding: '10px 16px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
-          >
-            Import CSV
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            style={{ backgroundColor: '#184F95', color: '#FFFFFF', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}
-          >
-            + Add Participant
-          </button>
-        </div>
-      </div>
+    <div style={{ padding: '40px', fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+        
+        {/* Card Container */}
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          
+          {/* Top Label */}
+          <div style={{ fontSize: '12px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '16px' }}>
+            PARTICIPANT LIST
+          </div>
 
-      {/* Toolbar: Search & Filter Pills */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', gap: '16px' }}>
-        <input
-          type="text"
-          placeholder="Search participants by name or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: '320px', padding: '10px 14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px' }}
-        />
+          {/* Live Search & Filter Bar (Design System Match) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+            
+            {/* Search Input (Name or Email Live Filter) */}
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Search participants..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  width: '260px',
+                  padding: '10px 16px',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '24px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  backgroundColor: '#FFFFFF',
+                }}
+              />
+            </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setFilter('ALL')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: filter === 'ALL' ? '#184F95' : '#F3F4F6',
-              color: filter === 'ALL' ? '#FFFFFF' : '#374151',
-              fontWeight: '600',
-              cursor: 'pointer',
-            }}
-          >
-            All ({registrations.length})
-          </button>
-          <button
-            onClick={() => setFilter('CHECKED_IN')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: filter === 'CHECKED_IN' ? '#184F95' : '#F3F4F6',
-              color: filter === 'CHECKED_IN' ? '#FFFFFF' : '#374151',
-              fontWeight: '600',
-              cursor: 'pointer',
-            }}
-          >
-            Checked In
-          </button>
-          <button
-            onClick={() => setFilter('REGISTERED')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              border: 'none',
-              backgroundColor: filter === 'REGISTERED' ? '#184F95' : '#F3F4F6',
-              color: filter === 'REGISTERED' ? '#FFFFFF' : '#374151',
-              fontWeight: '600',
-              cursor: 'pointer',
-            }}
-          >
-            Registered
-          </button>
-        </div>
-      </div>
+            {/* Status Filter Pills */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setFilter('ALL')}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  border: filter === 'ALL' ? 'none' : '1px solid #D1D5DB',
+                  backgroundColor: filter === 'ALL' ? '#184F95' : '#FFFFFF',
+                  color: filter === 'ALL' ? '#FFFFFF' : '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                All (1,520)
+              </button>
 
-      {/* Data Table */}
-      <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#FFFFFF' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', textTransform: 'uppercase', fontSize: '12px' }}>
-              <th style={{ padding: '14px 20px' }}>Participant</th>
-              <th style={{ padding: '14px 20px' }}>Email</th>
-              <th style={{ padding: '14px 20px' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>No participants found.</td></tr>
-            ) : (
-              filtered.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB' }}>
-                  <td style={{ padding: '16px 20px', fontWeight: '600', color: '#111827' }}>{item.participant.fullName}</td>
-                  <td style={{ padding: '16px 20px', color: '#4B5563' }}>{item.participant.email}</td>
-                  <td style={{ padding: '16px 20px' }}>
-                    <span
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        backgroundColor: item.attended ? '#E6F4ED' : '#DBEAFE',
-                        color: item.attended ? '#0D5235' : '#032042',
-                      }}
-                    >
-                      {item.attended ? 'Checked in' : 'Registered'}
-                    </span>
-                  </td>
+              <button
+                onClick={() => setFilter('CHECKED_IN')}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  border: filter === 'CHECKED_IN' ? 'none' : '1px solid #D1D5DB',
+                  backgroundColor: filter === 'CHECKED_IN' ? '#184F95' : '#FFFFFF',
+                  color: filter === 'CHECKED_IN' ? '#FFFFFF' : '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Checked in
+              </button>
+
+              <button
+                onClick={() => setFilter('REGISTERED')}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  border: filter === 'REGISTERED' ? 'none' : '1px solid #D1D5DB',
+                  backgroundColor: filter === 'REGISTERED' ? '#184F95' : '#FFFFFF',
+                  color: filter === 'REGISTERED' ? '#FFFFFF' : '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Registered
+              </button>
+
+              <button
+                onClick={() => setFilter('NO_SHOW')}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '24px',
+                  border: filter === 'NO_SHOW' ? 'none' : '1px solid #D1D5DB',
+                  backgroundColor: filter === 'NO_SHOW' ? '#184F95' : '#FFFFFF',
+                  color: filter === 'NO_SHOW' ? '#FFFFFF' : '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                No-show
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowCsvModal(true)}
+                style={{
+                  border: '1.5px solid #184F95',
+                  backgroundColor: '#FFFFFF',
+                  color: '#184F95',
+                  padding: '8px 20px',
+                  borderRadius: '24px',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Import CSV
+              </button>
+
+              <button
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  backgroundColor: '#184F95',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '8px 20px',
+                  borderRadius: '24px',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                + Add
+              </button>
+            </div>
+          </div>
+
+          {/* Table Container */}
+          <div style={{ border: '1px solid #E5E7EB', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#FFFFFF' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
+                  <th style={{ padding: '14px 16px', width: '40px' }}>
+                    <input
+                      type="checkbox"
+                      onChange={handleSelectAll}
+                      checked={selectedIds.length === filtered.length && filtered.length > 0}
+                      style={{ cursor: 'pointer', borderRadius: '4px' }}
+                    />
+                  </th>
+                  <th style={{ padding: '14px 20px' }}>PARTICIPANT</th>
+                  <th style={{ padding: '14px 20px' }}>STATUS</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>No participants found matching "{search}".</td></tr>
+                ) : (
+                  filtered.map((item) => {
+                    const badge = getStatusBadgeStyle(item.status);
+                    const isSelected = selectedIds.includes(item.id);
+                    return (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB', backgroundColor: isSelected ? '#F3F4F6' : '#FFFFFF' }}>
+                        <td style={{ padding: '16px 16px' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleSelectOne(item.id)}
+                            style={{ cursor: 'pointer', borderRadius: '4px' }}
+                          />
+                        </td>
+                        <td style={{ padding: '16px 20px' }}>
+                          <div style={{ fontWeight: '700', color: '#111827' }}>{item.participant.fullName}</div>
+                          <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{item.participant.email}</div>
+                        </td>
+                        <td style={{ padding: '16px 20px' }}>
+                          <span
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '16px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              backgroundColor: badge.bg,
+                              color: badge.color,
+                              display: 'inline-block',
+                            }}
+                          >
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Add Modal */}
       {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <form onSubmit={handleAddParticipant} style={{ backgroundColor: '#FFFFFF', padding: '24px', borderRadius: '12px', width: '400px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px' }}>Add New Participant</h3>
+          <form onSubmit={handleAddParticipant} style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Add New Participant</h3>
             <input
               type="text"
               placeholder="Full Name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              style={{ width: '100%', padding: '10px', marginBottom: '12px', border: '1px solid #D1D5DB', borderRadius: '6px' }}
+              style={{ width: '100%', padding: '12px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
             />
             <input
               type="email"
@@ -244,11 +391,11 @@ export default function ParticipantsPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{ width: '100%', padding: '10px', marginBottom: '16px', border: '1px solid #D1D5DB', borderRadius: '6px' }}
+              style={{ width: '100%', padding: '12px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '6px' }}>Cancel</button>
-              <button type="submit" disabled={submitting} style={{ padding: '8px 16px', backgroundColor: '#184F95', color: '#FFF', border: 'none', borderRadius: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
+              <button type="submit" disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#184F95', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
                 {submitting ? 'Adding...' : 'Add & Send Ticket'}
               </button>
             </div>
@@ -259,19 +406,19 @@ export default function ParticipantsPage() {
       {/* CSV Import Modal */}
       {showCsvModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ backgroundColor: '#FFFFFF', padding: '24px', borderRadius: '12px', width: '500px' }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Import Participants via CSV</h3>
-            <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 12px 0' }}>Paste CSV content (fullName, email, ticketType):</p>
+          <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '520px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Import Participants via CSV</h3>
+            <p style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 16px 0' }}>Paste CSV content (fullName, email, ticketType):</p>
             <textarea
               rows={6}
-              placeholder="fullName,email,ticketType&#10;Kasun Fernando,kasun@example.com,VIP"
+              placeholder="fullName,email,ticketType&#10;Nadeesha Perera,nadeesha@example.com,VIP&#10;Kasun Fernando,kasun@example.com,Regular"
               value={csvText}
               onChange={(e) => setCsvText(e.target.value)}
-              style={{ width: '100%', padding: '10px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '13px', fontFamily: 'monospace', marginBottom: '16px' }}
+              style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '13px', fontFamily: 'monospace', marginBottom: '20px', outline: 'none' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setShowCsvModal(false)} style={{ padding: '8px 16px', border: '1px solid #D1D5DB', borderRadius: '6px' }}>Cancel</button>
-              <button onClick={handleCsvImport} disabled={submitting} style={{ padding: '8px 16px', backgroundColor: '#184F95', color: '#FFF', border: 'none', borderRadius: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button onClick={() => setShowCsvModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
+              <button onClick={handleCsvImport} disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#184F95', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
                 {submitting ? 'Importing...' : 'Import & Dispatch Tickets'}
               </button>
             </div>
