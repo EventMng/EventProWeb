@@ -68,6 +68,12 @@ export async function verifyToken(token: string):
 
 }
 
+export async function verifyQRToken(token: string): Promise<QRTokenPayload> {
+  const secretKey = getSecretKey();
+  const { payload } = await jwtVerify(token, secretKey);
+  return payload as unknown as QRTokenPayload;
+}
+
 // generate  QR code
 export async function generateQRCodeDataURL(
   data: string | object,
