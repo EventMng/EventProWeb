@@ -82,6 +82,8 @@ event-system-web/
 
 Scaffolded from `create-next-app` (App Router, TypeScript, Tailwind), with the folder layout above, a `prisma/schema.prisma` covering the ERD (`Organization`, `User`, `Event`, `EventFrontman`, `Participant`, `EventRegistration`), and both `/api/scanner/*` routes stubbed against it. Auth (NextAuth.js/JWT + RBAC), the dashboard UI, and `mailer.ts`'s actual email delivery are not yet implemented.
 
+Database is provisioned on Neon (hosted PostgreSQL) with the initial migration (`prisma/migrations/20260822021936_init`) applied — schema is live and in sync.
+
 ## Getting Started
 
 1. Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `NEXTAUTH_SECRET`, `QR_TOKEN_SECRET`, and `RESEND_API_KEY`.
