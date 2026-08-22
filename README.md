@@ -77,3 +77,32 @@ event-system-web/
 │       └── auth.ts
 
 ```
+
+## Status
+
+Scaffolded from `create-next-app` (App Router, TypeScript, Tailwind), with the folder layout above, a `prisma/schema.prisma` covering the ERD (`Organization`, `User`, `Event`, `EventFrontman`, `Participant`, `EventRegistration`), and both `/api/scanner/*` routes stubbed against it. Auth (NextAuth.js/JWT + RBAC), the dashboard UI, and `mailer.ts`'s actual email delivery are not yet implemented.
+
+## Getting Started
+
+1. Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `NEXTAUTH_SECRET`, `QR_TOKEN_SECRET`, and `RESEND_API_KEY`.
+2. Install and generate the Prisma client:
+   ```bash
+   npm install
+   npx prisma migrate dev --name init
+   ```
+3. Run the dev server:
+   ```bash
+   npm run dev
+   ```
+
+## Commands
+
+```bash
+npm run dev         # start dev server
+npm run build        # production build
+npm run start        # run production build
+npm run lint
+npm run typecheck
+npx prisma studio    # inspect the database
+npx prisma migrate dev --name <name>   # create/apply a migration
+```
