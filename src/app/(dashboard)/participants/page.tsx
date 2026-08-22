@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { parseParticipantCSV } from '@/lib/csv-parser';
+import { Navbar } from '@/components/shared/Navbar';
+import { Sidebar } from '@/components/shared/Sidebar';
 
 interface RegistrationItem {
   id: string;
@@ -171,11 +173,15 @@ export default function ParticipantsPage() {
   };
 
   return (
-    <div style={{ padding: '40px', fontFamily: 'Inter, system-ui, sans-serif', backgroundColor: '#F9FAFB', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
-        
-        {/* Card Container */}
-        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB' }}>
+      <Navbar />
+      <div style={{ display: 'flex' }}>
+        <Sidebar />
+        <main style={{ flex: 1, padding: '32px 40px' }}>
+          <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+            
+            {/* Card Container */}
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           
           {/* Top Label */}
           <div style={{ fontSize: '12px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '16px' }}>
@@ -425,6 +431,8 @@ export default function ParticipantsPage() {
           </div>
         </div>
       )}
+        </main>
+      </div>
     </div>
   );
 }
