@@ -1,67 +1,218 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import Link from 'next/link';
+import { Sidebar } from '@/components/shared/Sidebar';
+
+export default function DashboardPage() {
+  const events = [
+    {
+      id: '1',
+      name: 'Tech Summit 2026',
+      date: 'Today, 9:00 AM',
+      status: 'Live',
+      statusType: 'live',
+      headcount: '1,248 / 1,520',
+    },
+    {
+      id: '2',
+      name: 'Alumni Meetup',
+      date: 'Sep 4',
+      status: 'Upcoming',
+      statusType: 'upcoming',
+      headcount: '0 / 340',
+    },
+    {
+      id: '3',
+      name: 'Founders Night',
+      date: 'Aug 2',
+      status: 'Completed',
+      statusType: 'completed',
+      headcount: '210 / 240',
+    },
+  ];
+
+  const getStatusBadge = (type: string, label: string) => {
+    switch (type) {
+      case 'live':
+        return (
+          <span
+            style={{
+              backgroundColor: '#FFEDD5',
+              color: '#EA580C',
+              padding: '4px 12px',
+              borderRadius: '16px',
+              fontSize: '12px',
+              fontWeight: '700',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            ● {label}
+          </span>
+        );
+      case 'upcoming':
+        return (
+          <span
+            style={{
+              backgroundColor: '#EFF6FF',
+              color: '#2563EB',
+              padding: '4px 12px',
+              borderRadius: '16px',
+              fontSize: '12px',
+              fontWeight: '700',
+            }}
+          >
+            {label}
+          </span>
+        );
+      case 'completed':
+        return (
+          <span
+            style={{
+              backgroundColor: '#ECFDF5',
+              color: '#059669',
+              padding: '4px 12px',
+              borderRadius: '16px',
+              fontSize: '12px',
+              fontWeight: '700',
+            }}
+          >
+            {label}
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        backgroundColor: '#F9FAFB',
+        fontFamily: "'Urbanist', sans-serif",
+      }}
+    >
+      {/* Dark Sidebar */}
+      <Sidebar />
+
+      {/* Main Dashboard Canvas */}
+      <main style={{ flex: 1, padding: '36px 48px' }}>
+        {/* Top Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
+            Good morning, Sanduni
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+          <button
+            style={{
+              backgroundColor: '#F97316',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: "'Urbanist', sans-serif",
+              boxShadow: '0 2px 4px rgba(249, 115, 22, 0.2)',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
+            New event
+          </button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* 4 Stat Cards Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '36px' }}>
+          {/* Card 1: LIVE NOW */}
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '20px', border: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', marginBottom: '16px' }}>
+              LIVE NOW
+            </div>
+            <div>
+              <span style={{ backgroundColor: '#FFEDD5', color: '#EA580C', padding: '6px 14px', borderRadius: '16px', fontSize: '13px', fontWeight: '700' }}>
+                ● 1 event
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: CHECKED IN TODAY */}
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '20px', border: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              CHECKED IN TODAY
+            </div>
+            <div style={{ fontSize: '34px', fontWeight: '800', color: '#111827', lineHeight: 1.1 }}>
+              1,248
+            </div>
+            <div style={{ fontSize: '12px', fontWeight: '700', color: '#059669', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '2px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>arrow_upward</span>
+              12% vs 11am
+            </div>
+          </div>
+
+          {/* Card 3: ATTENDANCE RATE */}
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '20px', border: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              ATTENDANCE RATE
+            </div>
+            <div style={{ fontSize: '34px', fontWeight: '800', color: '#111827', lineHeight: 1.1 }}>
+              82%
+            </div>
+          </div>
+
+          {/* Card 4: UPCOMING EVENTS */}
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '20px', border: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              UPCOMING EVENTS
+            </div>
+            <div style={{ fontSize: '34px', fontWeight: '800', color: '#111827', lineHeight: 1.1 }}>
+              4
+            </div>
+          </div>
+        </div>
+
+        {/* YOUR EVENTS Table Section */}
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB' }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', marginBottom: '20px' }}>
+            YOUR EVENTS
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
+                <th style={{ padding: '12px 16px' }}>EVENT</th>
+                <th style={{ padding: '12px 16px' }}>DATE</th>
+                <th style={{ padding: '12px 16px' }}>STATUS</th>
+                <th style={{ padding: '12px 16px' }}>HEADCOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                  <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827' }}>
+                    <Link href="/participants" style={{ textDecoration: 'none', color: '#111827' }}>
+                      {event.name}
+                    </Link>
+                  </td>
+                  <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
+                    {event.date}
+                  </td>
+                  <td style={{ padding: '18px 16px' }}>
+                    {getStatusBadge(event.statusType, event.status)}
+                  </td>
+                  <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', fontSize: '14px' }}>
+                    {event.headcount}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </main>
     </div>
