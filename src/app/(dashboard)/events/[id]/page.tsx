@@ -18,54 +18,25 @@ interface RegistrationItem {
   };
 }
 
-const MOCK_EVENTS: Record<string, { name: string; date: string; location: string; status: string }> = {
-  '1': { name: 'Tech Summit 2026', date: 'Today, 9:00 AM', location: 'Grand Ballroom, Colombo', status: 'Live' },
-  '2': { name: 'Alumni Meetup', date: 'Sep 4, 6:00 PM', location: 'Hilton Residences', status: 'Upcoming' },
-  '3': { name: 'Founders Night', date: 'Aug 2, 7:00 PM', location: 'Cinnamon Grand', status: 'Completed' },
-};
+interface EventDetail {
+  id: string;
+  name: string;
+  location: string | null;
+  eventDate: string;
+  status: 'Live' | 'Upcoming' | 'Completed';
+}
 
-const MOCK_PARTICIPANTS: RegistrationItem[] = [
-  {
-    id: '1',
-    qrToken: 'tok_1',
-    attended: true,
-    status: 'Checked in',
-    ticketType: 'VIP',
-    participant: { fullName: 'Nadeesha Perera', email: 'nadeesha@example.com' },
-  },
-  {
-    id: '2',
-    qrToken: 'tok_2',
-    attended: false,
-    status: 'Registered',
-    ticketType: 'General',
-    participant: { fullName: 'Kasun Fernando', email: 'kasun@example.com' },
-  },
-  {
-    id: '3',
-    qrToken: 'tok_3',
-    attended: false,
-    status: 'No-show',
-    ticketType: 'General',
-    participant: { fullName: 'Ishara Silva', email: 'ishara@example.com' },
-  },
-  {
-    id: '4',
-    qrToken: 'tok_4',
-    attended: true,
-    status: 'Checked in',
-    ticketType: 'Staff',
-    participant: { fullName: 'Tharindu Jayasuriya', email: 'tharindu@example.com' },
-  },
-];
+type RawRegistration = Omit<RegistrationItem, 'status'>;
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const eventId = resolvedParams.id;
-  const eventInfo = MOCK_EVENTS[eventId] || { name: 'Event Details', date: 'Upcoming', location: 'Colombo', status: 'Upcoming' };
 
-  const [registrations, setRegistrations] = useState<RegistrationItem[]>(MOCK_PARTICIPANTS);
-  const [loading, setLoading] = useState(false);
+  const [eventInfo, setEventInfo] = useState<EventDetail | null>(null);
+  const [eventLoadError, setEventLoadError] = useState(false);
+  const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'CHECKED_IN' | 'REGISTERED' | 'NO_SHOW'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -79,27 +50,42 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [csvText, setCsvText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchParticipants();
-  }, [eventId]);
-
-  const fetchParticipants = async () => {
+  const fetchEventInfo = async () => {
     try {
-      const res = await fetch(`/api/participants?eventId=${eventId}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length > 0) {
-          const formatted = data.map((item: any) => ({
-            ...item,
-            status: item.attended ? 'Checked in' : 'Registered',
-          }));
-          setRegistrations(formatted);
-        }
-      }
-    } catch (err) {
-      // Retain mock participants
+      const res = await fetch(`/api/events/${eventId}`);
+      if (!res.ok) throw new Error('Failed to fetch event');
+      setEventInfo(await res.json());
+    } catch {
+      setEventLoadError(true);
     }
   };
+
+  const fetchParticipants = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/participants?eventId=${eventId}`);
+      if (!res.ok) throw new Error('Failed to fetch participants');
+      const data: RawRegistration[] = await res.json();
+      const formatted = data.map((item) => ({
+        ...item,
+        status: item.attended ? 'Checked in' as const : 'Registered' as const,
+      }));
+      setRegistrations(formatted);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      await fetchEventInfo();
+      await fetchParticipants();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -231,13 +217,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
-              {eventInfo.name}
+              {eventLoadError ? 'Event not found' : eventInfo ? eventInfo.name : 'Loading…'}
             </h1>
-            <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span>{eventInfo.date}</span>
-              <span>•</span>
-              <span>{eventInfo.location}</span>
-            </div>
+            {eventInfo && (
+              <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span>
+                  {new Date(eventInfo.eventDate).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </span>
+                <span>•</span>
+                <span>{eventInfo.location || '—'}</span>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -407,8 +400,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             <tbody>
               {loading ? (
                 <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
+              ) : loadError ? (
+                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#DC2626' }}>Failed to load participants. Please try again.</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>No participants found matching "{search}".</td></tr>
+                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>
+                  {registrations.length === 0 ? 'No participants registered yet.' : `No participants found matching "${search}".`}
+                </td></tr>
               ) : (
                 filtered.map((item) => {
                   const badge = getStatusBadgeStyle(item.status);
@@ -511,7 +508,20 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
             <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '520px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Import Participants via CSV</h3>
-              <p style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 16px 0' }}>Paste CSV content (fullName, email, ticketType):</p>
+              <p style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 12px 0' }}>Upload a .csv file, or paste its content below (fullName, email, ticketType):</p>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => setCsvText(String(reader.result ?? ''));
+                  reader.readAsText(file);
+                  e.target.value = '';
+                }}
+                style={{ width: '100%', marginBottom: '14px', fontSize: '13px', color: '#4B5563' }}
+              />
               <textarea
                 rows={6}
                 placeholder="fullName,email,ticketType&#10;Nadeesha Perera,nadeesha@example.com,VIP&#10;Kasun Fernando,kasun@example.com,Regular"
