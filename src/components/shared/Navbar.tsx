@@ -8,7 +8,6 @@ export function Navbar() {
 
   const navItems = [
     { name: 'Events', href: '/events' },
-    { name: 'Participants', href: '/participants' },
     { name: 'Reports', href: '/reports' },
     { name: 'Admin', href: '/admin' },
   ];

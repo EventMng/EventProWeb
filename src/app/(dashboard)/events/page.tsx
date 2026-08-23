@@ -1,38 +1,47 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/shared/Sidebar';
 import Link from 'next/link';
 
+interface EventListItem {
+  id: string;
+  name: string;
+  location: string | null;
+  eventDate: string;
+  status: 'Live' | 'Upcoming' | 'Completed';
+  totalRegistrations: number;
+  checkedInCount: number;
+}
+
 export default function EventsPage() {
-  const events = [
-    {
-      id: '1',
-      name: 'Tech Summit 2026',
-      date: 'Today, 9:00 AM',
-      location: 'Grand Ballroom, Colombo',
-      status: 'Live',
-      statusType: 'live',
-      headcount: '1,248 / 1,520',
-    },
-    {
-      id: '2',
-      name: 'Alumni Meetup',
-      date: 'Sep 4, 6:00 PM',
-      location: 'Hilton Residences',
-      status: 'Upcoming',
-      statusType: 'upcoming',
-      headcount: '0 / 340',
-    },
-    {
-      id: '3',
-      name: 'Founders Night',
-      date: 'Aug 2, 7:00 PM',
-      location: 'Cinnamon Grand',
-      status: 'Completed',
-      statusType: 'completed',
-      headcount: '210 / 240',
-    },
-  ];
+  const [events, setEvents] = useState<EventListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/events');
+        if (!res.ok) throw new Error('Failed to fetch events');
+        const data: EventListItem[] = await res.json();
+        if (!cancelled) setEvents(data);
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const statusTypeFor = (status: EventListItem['status']) =>
+    status === 'Live' ? 'live' : status === 'Upcoming' ? 'upcoming' : 'completed';
 
   const getStatusBadge = (type: string, label: string) => {
     switch (type) {
@@ -145,27 +154,38 @@ export default function EventsPage() {
               </tr>
             </thead>
             <tbody>
-              {events.map((event) => (
-                <tr key={event.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                  <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827' }}>
-                    <Link href={`/events/${event.id}`} style={{ textDecoration: 'none', color: '#111827' }}>
-                      {event.name}
-                    </Link>
-                  </td>
-                  <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
-                    {event.date}
-                  </td>
-                  <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
-                    {event.location}
-                  </td>
-                  <td style={{ padding: '18px 16px' }}>
-                    {getStatusBadge(event.statusType, event.status)}
-                  </td>
-                  <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', fontSize: '14px' }}>
-                    {event.headcount}
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading events...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#DC2626' }}>Failed to load events. Please try again.</td></tr>
+              ) : events.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>No events yet.</td></tr>
+              ) : (
+                events.map((event) => (
+                  <tr key={event.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827' }}>
+                      <Link href={`/events/${event.id}`} style={{ textDecoration: 'none', color: '#111827' }}>
+                        {event.name}
+                      </Link>
+                    </td>
+                    <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
+                      {new Date(event.eventDate).toLocaleString(undefined, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </td>
+                    <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
+                      {event.location || '—'}
+                    </td>
+                    <td style={{ padding: '18px 16px' }}>
+                      {getStatusBadge(statusTypeFor(event.status), event.status)}
+                    </td>
+                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', fontSize: '14px' }}>
+                      {event.checkedInCount} / {event.totalRegistrations}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -12,7 +12,7 @@ const getSecretKey = (): Uint8Array => {
 
 export async function signQRToken(
   payload: Omit<QRTokenPayload, 'iat' | 'exp'>,
-  expiresIn: string = '90d'
+  expiresIn: string | number = '90d'
 ): Promise<string> {
   const secretKey = getSecretKey();
 
