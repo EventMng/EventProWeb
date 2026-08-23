@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
-    const { eventId, fullName, email } = body;
+    const { eventId, fullName, email, ticketType } = body;
 
     if (!eventId || !fullName || !email) {
       return NextResponse.json(
@@ -106,7 +106,8 @@ export async function POST(request: NextRequest) {
       data: {
         eventId,
         participantId: participant.id,
-        qrToken: `temp_${Date.now()}`,
+        ticketType: typeof ticketType === 'string' && ticketType.trim() ? ticketType : 'General',
+        qrToken: `temp_${Date.now()}_${Math.random()}`,
       },
     });
 

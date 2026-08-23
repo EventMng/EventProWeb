@@ -92,6 +92,7 @@ model EventRegistration {
   event             Event     @relation(fields: [eventId], references: [id])
   participantId     String    @map("participant_id")
   participant       Participant @relation(fields: [participantId], references: [id])
+  ticketType        String    @default("General") @map("ticket_type")
   qrToken           String    @unique @map("qr_token")
   invitationSentAt  DateTime? @map("invitation_sent_at")
   attended          Boolean   @default(false)

@@ -11,6 +11,7 @@ interface RegistrationItem {
   attended: boolean;
   status: 'Checked in' | 'Registered' | 'No-show';
   attendedAt?: string;
+  ticketType: string;
   participant: {
     fullName: string;
     email: string;
@@ -23,6 +24,7 @@ const MOCK_PARTICIPANTS: RegistrationItem[] = [
     qrToken: 'tok_1',
     attended: true,
     status: 'Checked in',
+    ticketType: 'VIP',
     participant: { fullName: 'Nadeesha Perera', email: 'nadeesha@example.com' },
   },
   {
@@ -30,6 +32,7 @@ const MOCK_PARTICIPANTS: RegistrationItem[] = [
     qrToken: 'tok_2',
     attended: false,
     status: 'Registered',
+    ticketType: 'General',
     participant: { fullName: 'Kasun Fernando', email: 'kasun@example.com' },
   },
   {
@@ -37,6 +40,7 @@ const MOCK_PARTICIPANTS: RegistrationItem[] = [
     qrToken: 'tok_3',
     attended: false,
     status: 'No-show',
+    ticketType: 'General',
     participant: { fullName: 'Ishara Silva', email: 'ishara@example.com' },
   },
   {
@@ -44,6 +48,7 @@ const MOCK_PARTICIPANTS: RegistrationItem[] = [
     qrToken: 'tok_4',
     attended: true,
     status: 'Checked in',
+    ticketType: 'Staff',
     participant: { fullName: 'Tharindu Jayasuriya', email: 'tharindu@example.com' },
   },
 ];
@@ -60,6 +65,7 @@ export default function ParticipantsPage() {
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [ticketType, setTicketType] = useState('General');
   const [csvText, setCsvText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -110,11 +116,12 @@ export default function ParticipantsPage() {
       const res = await fetch('/api/participants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, fullName, email }),
+        body: JSON.stringify({ eventId, fullName, email, ticketType }),
       });
       if (res.ok) {
         setFullName('');
         setEmail('');
+        setTicketType('General');
         setShowAddModal(false);
         fetchParticipants();
       }
@@ -169,6 +176,17 @@ export default function ParticipantsPage() {
         return { bg: '#FEE2E2', color: '#991B1B' };
       default:
         return { bg: '#DBEAFE', color: '#1E40AF' };
+    }
+  };
+
+  const getTicketBadgeStyle = (ticketType: string) => {
+    switch (ticketType) {
+      case 'VIP':
+        return { bg: '#FEF3C7', color: '#92400E' };
+      case 'Staff':
+        return { bg: '#EDE9FE', color: '#5B21B6' };
+      default:
+        return { bg: '#F3F4F6', color: '#374151' };
     }
   };
 
@@ -327,17 +345,19 @@ export default function ParticipantsPage() {
                     />
                   </th>
                   <th style={{ padding: '14px 20px' }}>PARTICIPANT</th>
+                  <th style={{ padding: '14px 20px' }}>TICKET</th>
                   <th style={{ padding: '14px 20px' }}>STATUS</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
+                  <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>No participants found matching "{search}".</td></tr>
+                  <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>No participants found matching "{search}".</td></tr>
                 ) : (
                   filtered.map((item) => {
                     const badge = getStatusBadgeStyle(item.status);
+                    const ticketBadge = getTicketBadgeStyle(item.ticketType);
                     const isSelected = selectedIds.includes(item.id);
                     return (
                       <tr key={item.id} style={{ borderBottom: '1px solid #E5E7EB', backgroundColor: isSelected ? '#F3F4F6' : '#FFFFFF' }}>
@@ -352,6 +372,21 @@ export default function ParticipantsPage() {
                         <td style={{ padding: '16px 20px' }}>
                           <div style={{ fontWeight: '700', color: '#111827' }}>{item.participant.fullName}</div>
                           <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{item.participant.email}</div>
+                        </td>
+                        <td style={{ padding: '16px 20px' }}>
+                          <span
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '16px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              backgroundColor: ticketBadge.bg,
+                              color: ticketBadge.color,
+                              display: 'inline-block',
+                            }}
+                          >
+                            {item.ticketType}
+                          </span>
                         </td>
                         <td style={{ padding: '16px 20px' }}>
                           <span
@@ -397,8 +432,17 @@ export default function ParticipantsPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{ width: '100%', padding: '12px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+              style={{ width: '100%', padding: '12px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
             />
+            <select
+              value={ticketType}
+              onChange={(e) => setTicketType(e.target.value)}
+              style={{ width: '100%', padding: '12px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#FFFFFF', color: '#111827' }}
+            >
+              <option value="General">General</option>
+              <option value="VIP">VIP</option>
+              <option value="Staff">Staff</option>
+            </select>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
               <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
               <button type="submit" disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#184F95', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>

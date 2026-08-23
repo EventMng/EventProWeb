@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Batch process participants
     for (const item of participants) {
-      const { fullName, email } = item;
+      const { fullName, email, ticketType } = item;
       if (!fullName || !email) {
         errors.push(`Skipped invalid entry: ${JSON.stringify(item)}`);
         continue;
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
           data: {
             eventId,
             participantId: participant.id,
+            ticketType: typeof ticketType === 'string' && ticketType.trim() ? ticketType : 'General',
             qrToken: `temp_${Date.now()}_${Math.random()}`,
           },
         });
