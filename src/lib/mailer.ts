@@ -10,12 +10,19 @@ export interface SendQRInvitationInput {
   qrToken: string;
 }
 
+const getMailFrom = (): string => {
+  const from = process.env.MAIL_FROM;
+  if (from) return from;
+  console.warn('MAIL_FROM is not set; falling back to a placeholder sender address.');
+  return '"EventPro" <no-reply@eventpro.local>';
+};
+
 export async function sendQRInvitation(input: SendQRInvitationInput): Promise<boolean> {
   const {to, participantName, eventName, eventDate, location, qrToken} = input;
 
   // Create the QR image data URL (Base64)
   const qrImageDataUrl = await generateQRCodeDataURL(qrToken, 200);
-  
+
   // Nodemailer Transporter setup (for local testing or SMTP)
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.ethereal.email',
@@ -60,7 +67,7 @@ export async function sendQRInvitation(input: SendQRInvitationInput): Promise<bo
 
   // Send the email
   await transporter.sendMail({
-    from: '"EventPro" <[EMAIL_ADDRESS]>',
+    from: getMailFrom(),
     to,
     subject: `You're Invited! Your QR Ticket for ${eventName}`,
     html: htmlContent,

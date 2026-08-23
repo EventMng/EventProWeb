@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { signQRToken } from "@/lib/qr-token";
 import { sendQRInvitation } from "@/lib/mailer";
+import { getSessionUser } from "@/lib/session";
+import { requireRole } from "@/lib/authz";
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getSessionUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
+    }
+
+    const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER']);
+    if (roleCheck) return roleCheck;
+
     const { eventId, participants } = await request.json();
 
     if (!eventId || !Array.isArray(participants) || participants.length === 0) {
@@ -15,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const event = await db.event.findUnique({ where: { id: eventId } });
-    if (!event) {
+    if (!event || event.organizationId !== user.organizationId) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 

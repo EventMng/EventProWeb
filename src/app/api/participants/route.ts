@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { signQRToken } from "@/lib/qr-token";
 import { sendQRInvitation } from "@/lib/mailer";
+import { getSessionUser } from "@/lib/session";
+import { requireRole } from "@/lib/authz";
 
 // GET /api/participants?eventId=xxx
 export async function GET(request: NextRequest) {
   try {
+    const user = await getSessionUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
+    }
+
+    const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER', 'FRONTMAN']);
+    if (roleCheck) return roleCheck;
+
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('eventId');
 
@@ -14,6 +24,14 @@ export async function GET(request: NextRequest) {
         { error: 'Missing eventId query parameter' },
         { status: 400 }
       );
+    }
+
+    const event = await db.event.findUnique({ where: { id: eventId } });
+
+    // Same response for "doesn't exist" and "exists in another org" —
+    // don't let a 403 confirm the ID is real.
+    if (!event || event.organizationId !== user.organizationId) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
     const registrations = await db.eventRegistration.findMany({
@@ -38,6 +56,14 @@ export async function GET(request: NextRequest) {
 // POST /api/participants
 export async function POST(request: NextRequest) {
   try {
+    const user = await getSessionUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
+    }
+
+    const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER']);
+    if (roleCheck) return roleCheck;
+
     const body = await request.json();
     const { eventId, fullName, email } = body;
 
@@ -48,12 +74,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Verify Event exists
+    // 1. Verify Event exists and belongs to the caller's organization
     const event = await db.event.findUnique({
       where: { id: eventId },
     });
 
-    if (!event) {
+    if (!event || event.organizationId !== user.organizationId) {
       return NextResponse.json(
         { error: 'Event not found' },
         { status: 404 }
