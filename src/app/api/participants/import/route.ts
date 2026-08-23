@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     let successCount = 0;
+    let skippedCount = 0;
     const errors: string[] = [];
 
     // Batch process participants
@@ -51,8 +52,26 @@ export async function POST(request: NextRequest) {
               organizationId: event.organizationId,
               fullName,
               email,
+              imageUrl: item.imageUrl || null,
+              createdById: user.id,
             },
           });
+        }
+
+        // Skip participants already registered for this event instead of
+        // creating a duplicate registration and re-sending their ticket.
+        const existingRegistration = await db.eventRegistration.findUnique({
+          where: {
+            eventId_participantId: {
+              eventId,
+              participantId: participant.id,
+            },
+          },
+        });
+
+        if (existingRegistration) {
+          skippedCount++;
+          continue;
         }
 
         const registration = await db.eventRegistration.create({
@@ -89,8 +108,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: `Successfully imported ${successCount} participants`,
+      message: `Successfully imported ${successCount} participants (${skippedCount} already registered, skipped)`,
       successCount,
+      skippedCount,
       errorsCount: errors.length,
       errors,
     });
