@@ -1,0 +1,263 @@
+'use client';
+
+import { useState } from 'react';
+import { Sidebar } from '@/components/shared/Sidebar';
+
+interface MemberItem {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN';
+  status: 'Active' | 'Temp Password Issued';
+  tempPassword?: string;
+}
+
+export default function MembersPage() {
+  const [members, setMembers] = useState<MemberItem[]>([
+    { id: '1', name: 'Sanduni Perera', email: 'sanduni@apexevents.com', role: 'ORG_ADMIN', status: 'Active' },
+    { id: '2', name: 'Kamal Jayawardena', email: 'kamal@apexevents.com', role: 'FRONTMAN', status: 'Temp Password Issued', tempPassword: 'Pass#9824' },
+    { id: '3', name: 'Nimal Fernando', email: 'nimal@apexevents.com', role: 'FRONTMAN', status: 'Active' },
+    { id: '4', name: 'Dilshan Silva', email: 'dilshan@apexevents.com', role: 'ORGANIZER', status: 'Active' },
+  ]);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'ORGANIZER' | 'FRONTMAN'>('FRONTMAN');
+  const [issuedTempPass, setIssuedTempPass] = useState<string | null>(null);
+
+  const handleAddMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || !email) return;
+
+    // Generate temporary password for Mobile App login
+    const randomCode = Math.floor(1000 + Math.random() * 9000);
+    const tempPass = `Temp#${randomCode}`;
+
+    const newMember: MemberItem = {
+      id: Date.now().toString(),
+      name: fullName,
+      email: email.trim().toLowerCase(),
+      role: role,
+      status: 'Temp Password Issued',
+      tempPassword: tempPass,
+    };
+
+    setMembers([...members, newMember]);
+    setIssuedTempPass(tempPass);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    setFullName('');
+    setEmail('');
+    setRole('FRONTMAN');
+    setIssuedTempPass(null);
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'ORG_ADMIN':
+        return { bg: '#FEF3C7', color: '#D97706', label: 'ORG ADMIN' };
+      case 'ORGANIZER':
+        return { bg: '#EFF6FF', color: '#2563EB', label: 'ORGANIZER' };
+      case 'FRONTMAN':
+        return { bg: '#F3E8FF', color: '#7C3AED', label: 'FRONTMAN (MOBILE)' };
+      default:
+        return { bg: '#F3F4F6', color: '#4B5563', label: role };
+    }
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        backgroundColor: '#F9FAFB',
+        fontFamily: "'Urbanist', sans-serif",
+      }}
+    >
+      <Sidebar />
+      <main style={{ flex: 1, padding: '36px 48px' }}>
+        {/* Top Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <div>
+            <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
+              Organization Members
+            </h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', margin: '4px 0 0 0', fontWeight: '600' }}>
+              Add staff members and assign temporary event roles (Frontman mobile scanner credentials).
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              backgroundColor: '#2563EB',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontFamily: "'Urbanist', sans-serif",
+              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
+            Add Member
+          </button>
+        </div>
+
+        {/* Table Container */}
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB' }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', marginBottom: '20px' }}>
+            ALL TEAM MEMBERS ({members.length})
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
+                <th style={{ padding: '12px 16px' }}>NAME</th>
+                <th style={{ padding: '12px 16px' }}>EMAIL (USERNAME)</th>
+                <th style={{ padding: '12px 16px' }}>ASSIGNED ROLE</th>
+                <th style={{ padding: '12px 16px' }}>APP CREDENTIALS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((member) => {
+                const roleBadge = getRoleBadge(member.role);
+                return (
+                  <tr key={member.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827' }}>
+                      {member.name}
+                    </td>
+                    <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
+                      {member.email}
+                    </td>
+                    <td style={{ padding: '18px 16px' }}>
+                      <span style={{ backgroundColor: roleBadge.bg, color: roleBadge.color, padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: '700' }}>
+                        {roleBadge.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: '18px 16px' }}>
+                      {member.tempPassword ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ backgroundColor: '#FEF3C7', color: '#D97706', padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700' }}>
+                            Temp Pass: {member.tempPassword}
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ backgroundColor: '#ECFDF5', color: '#059669', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: '700' }}>
+                          Active
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add Member Modal */}
+        {showAddModal && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+            <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '440px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+              {!issuedTempPass ? (
+                <form onSubmit={handleAddMember}>
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
+                    Add Team Member
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px 0' }}>
+                    Members do not register themselves. Org Admin adds them and assigns temporary passwords for mobile app scanner access.
+                  </p>
+
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kasun Jayawardena"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+                  />
+
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                    Email (App Login Username)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="kasun@apexevents.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+                  />
+
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                    Assigned Temporary Role
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as any)}
+                    style={{ width: '100%', padding: '10px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#FFFFFF', color: '#111827' }}
+                  >
+                    <option value="FRONTMAN">Frontman (Mobile App Scanner Staff)</option>
+                    <option value="ORGANIZER">Organizer (Event Coordinator)</option>
+                  </select>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <button type="button" onClick={handleCloseModal} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>
+                      Cancel
+                    </button>
+                    <button type="submit" style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
+                      Add Member & Generate Pass
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#059669' }}>check_circle</span>
+                    <h3 style={{ margin: '8px 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
+                      Member Added Successfully!
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
+                      Temporary login credentials generated for mobile app access.
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: '700', marginBottom: '4px' }}>LOGIN USERNAME</div>
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: '#111827', marginBottom: '12px' }}>{email}</div>
+
+                    <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: '700', marginBottom: '4px' }}>TEMPORARY PASSWORD</div>
+                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#2563EB', letterSpacing: '0.05em' }}>{issuedTempPass}</div>
+                  </div>
+
+                  <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 20px 0', textAlign: 'center' }}>
+                    Give these credentials to the staff member so they can log into the <strong>EventPro Mobile App</strong> to scan tickets.
+                  </p>
+
+                  <button
+                    onClick={handleCloseModal}
+                    style={{ width: '100%', padding: '12px', backgroundColor: '#2563EB', color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

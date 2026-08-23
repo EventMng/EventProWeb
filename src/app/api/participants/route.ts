@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
-    const { eventId, fullName, email } = body;
+    const { eventId, fullName, email, ticketType } = body;
 
     if (!eventId || !fullName || !email) {
       return NextResponse.json(
@@ -97,27 +97,51 @@ export async function POST(request: NextRequest) {
           organizationId: event.organizationId,
           fullName,
           email,
+          imageUrl: typeof body.imageUrl === 'string' ? body.imageUrl : null,
+          createdById: user.id,
         },
       });
     }
 
-    // 3. Create Event Registration
+    // 3. Reject if this participant is already registered for this event
+    const existingRegistration = await db.eventRegistration.findUnique({
+      where: {
+        eventId_participantId: {
+          eventId,
+          participantId: participant.id,
+        },
+      },
+    });
+
+    if (existingRegistration) {
+      return NextResponse.json(
+        {
+          error: 'ALREADY_REGISTERED',
+          message: 'This participant is already registered for this event.',
+          registrationId: existingRegistration.id,
+        },
+        { status: 409 }
+      );
+    }
+
+    // 4. Create Event Registration
     const registration = await db.eventRegistration.create({
       data: {
         eventId,
         participantId: participant.id,
-        qrToken: `temp_${Date.now()}`,
+        ticketType: typeof ticketType === 'string' && ticketType.trim() ? ticketType : 'General',
+        qrToken: `temp_${Date.now()}_${Math.random()}`,
       },
     });
 
-    // 4. Generate Cryptographic Signed QR Token
+    // 5. Generate Cryptographic Signed QR Token
     const qrToken = await signQRToken({
       registrationId: registration.id,
       eventId,
       participantId: participant.id,
     });
 
-    // 5. Update Registration Record with Signed Token
+    // 6. Update Registration Record with Signed Token
     await db.eventRegistration.update({
       where: { id: registration.id },
       data: {
@@ -126,7 +150,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 6. Send Email QR Ticket
+    // 7. Send Email QR Ticket
     await sendQRInvitation({
       to: email,
       participantName: fullName,

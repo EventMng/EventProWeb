@@ -37,6 +37,7 @@ model User {
   createdAt           DateTime @default(now()) @map("created_at")
 
   createdEvents       Event[]            @relation("EventCreatedBy")
+  createdParticipants Participant[]      @relation("ParticipantCreatedBy")
   frontmanAssignments EventFrontman[]
   markedRegistrations EventRegistration[] @relation("MarkedBy")
 
@@ -79,6 +80,8 @@ model Participant {
   fullName       String   @map("full_name")
   email          String
   imageUrl       String?  @map("image_url")
+  createdById    String?  @map("created_by_id")
+  creator        User?    @relation("ParticipantCreatedBy", fields: [createdById], references: [id])
   createdAt      DateTime @default(now()) @map("created_at")
 
   registrations EventRegistration[]
@@ -92,6 +95,7 @@ model EventRegistration {
   event             Event     @relation(fields: [eventId], references: [id])
   participantId     String    @map("participant_id")
   participant       Participant @relation(fields: [participantId], references: [id])
+  ticketType        String    @default("General") @map("ticket_type")
   qrToken           String    @unique @map("qr_token")
   invitationSentAt  DateTime? @map("invitation_sent_at")
   attended          Boolean   @default(false)
@@ -99,5 +103,6 @@ model EventRegistration {
   markedBy          String?   @map("marked_by")
   marker            User?     @relation("MarkedBy", fields: [markedBy], references: [id])
 
+  @@unique([eventId, participantId])
   @@map("event_registrations")
 }
