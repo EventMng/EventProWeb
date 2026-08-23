@@ -148,7 +148,7 @@ export default function EventsPage() {
               {events.map((event) => (
                 <tr key={event.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                   <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827' }}>
-                    <Link href="/participants" style={{ textDecoration: 'none', color: '#111827' }}>
+                    <Link href={`/events/${event.id}`} style={{ textDecoration: 'none', color: '#111827' }}>
                       {event.name}
                     </Link>
                   </td>

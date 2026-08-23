@@ -9,7 +9,6 @@ export function Sidebar() {
   const menuItems = [
     { name: 'Dashboard', href: '/', icon: 'dashboard' },
     { name: 'Events', href: '/events', icon: 'calendar_today' },
-    { name: 'Participants', href: '/participants', icon: 'group' },
     { name: 'Members', href: '/members', icon: 'badge' },
     { name: 'Settings', href: '/admin', icon: 'settings' },
   ];
@@ -96,23 +95,31 @@ export function Sidebar() {
       </div>
 
       {/* Bottom Profile / App Indicator (Matching Image 1) */}
-      <div style={{ paddingLeft: '8px', paddingTop: '16px' }}>
+      <div style={{ paddingLeft: '4px', paddingTop: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div
           style={{
-            width: '28px',
-            height: '28px',
+            width: '32px',
+            height: '32px',
             borderRadius: '50%',
-            backgroundColor: '#000000',
-            border: '1px solid #374151',
+            backgroundColor: '#2563EB',
+            border: '1.5px solid #3B82F6',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#FFFFFF',
             fontWeight: '800',
-            fontSize: '12px',
+            fontSize: '13px',
           }}
         >
-          N
+          S
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', lineHeight: '1.2' }}>
+            Sanduni Perera
+          </span>
+          <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '600' }}>
+            Org Admin
+          </span>
         </div>
       </div>
     </aside>
