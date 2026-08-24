@@ -102,8 +102,9 @@ export default function MembersPage() {
         return;
       }
 
-      setMembers((prev) => [...prev, toMemberItem(data.member)]);
-      setIssuedTempPass(data.tempPassword);
+      const newItem = toMemberItem(data.member);
+      setMembers((prev) => [...prev, newItem]);
+      setIssuedTempPass('ADDED');
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to add member.');
     } finally {
@@ -330,21 +331,19 @@ export default function MembersPage() {
                       Member Added Successfully!
                     </h3>
                     <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
-                      Temporary login credentials generated for mobile app access.
+                      Member has been added to your organization team.
                     </p>
                   </div>
 
                   <div style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-                    <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: '700', marginBottom: '4px' }}>LOGIN USERNAME</div>
-                    <div style={{ fontSize: '15px', fontWeight: '800', color: '#111827', marginBottom: '12px' }}>{email}</div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: '700', marginBottom: '4px' }}>MEMBER EMAIL</div>
+                    <div style={{ fontSize: '15px', fontWeight: '800', color: '#111827', marginBottom: '8px' }}>{email}</div>
 
-                    <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: '700', marginBottom: '4px' }}>TEMPORARY PASSWORD</div>
-                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#2563EB', letterSpacing: '0.05em' }}>{issuedTempPass}</div>
+                    <div style={{ fontSize: '12px', color: '#2563EB', fontWeight: '700', marginTop: '8px' }}>💡 FRONTMAN MOBILE APP ACCESS</div>
+                    <div style={{ fontSize: '13px', color: '#4B5563', marginTop: '4px' }}>
+                      To issue mobile app scanner credentials, go to an <strong>Event</strong> and assign this member as an <strong>Event Frontman</strong>.
+                    </div>
                   </div>
-
-                  <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 20px 0', textAlign: 'center' }}>
-                    Give these credentials to the staff member so they can log into the <strong>EventPro Mobile App</strong> to scan tickets.
-                  </p>
 
                   <button
                     onClick={handleCloseModal}
