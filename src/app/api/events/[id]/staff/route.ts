@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
+import { hashPassword, generateTempPassword } from "@/lib/password";
 
 // GET /api/events/[id]/staff — List members assigned to this event
 export async function GET(
@@ -97,6 +98,19 @@ export async function POST(
       return NextResponse.json({ error: "User not found in organization" }, { status: 404 });
     }
 
+    // Generate temporary password for Frontman app access for this event
+    const tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
+
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        isTemporaryPassword: true,
+        role: "FRONTMAN",
+      },
+    });
+
     // Assign to event
     const assignment = await db.eventFrontman.upsert({
       where: {
@@ -134,6 +148,7 @@ export async function POST(
         assignedAt: assignment.assignedAt,
         role: "FRONTMAN",
       },
+      tempPassword,
     });
   } catch (error: any) {
     console.error("Failed to assign staff to event:", error);
