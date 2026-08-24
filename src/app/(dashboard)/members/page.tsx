@@ -8,6 +8,7 @@ interface MemberItem {
   name: string;
   email: string;
   role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN';
+  imageUrl?: string | null;
   status: 'Active' | 'Temp Password Issued';
   tempPassword?: string;
 }
@@ -17,6 +18,7 @@ interface ApiMember {
   fullName: string;
   email: string;
   role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN' | 'SYSTEM_ADMIN';
+  imageUrl?: string | null;
   isTemporaryPassword: boolean;
 }
 
@@ -26,6 +28,7 @@ function toMemberItem(m: ApiMember): MemberItem {
     name: m.fullName,
     email: m.email,
     role: m.role as MemberItem['role'],
+    imageUrl: m.imageUrl,
     status: m.isTemporaryPassword ? 'Temp Password Issued' : 'Active',
   };
 }
@@ -38,7 +41,7 @@ export default function MembersPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'ORGANIZER' | 'FRONTMAN'>('FRONTMAN');
+  const [imageUrl, setImageUrl] = useState('');
   const [issuedTempPass, setIssuedTempPass] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,6 +68,21 @@ export default function MembersPage() {
     };
   }, []);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setSubmitError('Image size must be less than 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImageUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
@@ -75,7 +93,7 @@ export default function MembersPage() {
       const res = await fetch('/api/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName, email, role }),
+        body: JSON.stringify({ fullName, email, imageUrl }),
       });
       const data = await res.json();
 
@@ -97,7 +115,7 @@ export default function MembersPage() {
     setShowAddModal(false);
     setFullName('');
     setEmail('');
-    setRole('FRONTMAN');
+    setImageUrl('');
     setIssuedTempPass(null);
     setSubmitError(null);
   };
@@ -133,7 +151,7 @@ export default function MembersPage() {
               Organization Members
             </h1>
             <p style={{ fontSize: '14px', color: '#6B7280', margin: '4px 0 0 0', fontWeight: '600' }}>
-              Add staff members and assign temporary event roles (Frontman mobile scanner credentials).
+              Add staff members to your organization and generate temporary passwords. Event roles are assigned when allocating members to specific events.
             </p>
           </div>
 
@@ -191,7 +209,14 @@ export default function MembersPage() {
                 const roleBadge = getRoleBadge(member.role);
                 return (
                   <tr key={member.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827' }}>
+                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {member.imageUrl ? (
+                        <img src={member.imageUrl} alt={member.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px' }}>
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       {member.name}
                     </td>
                     <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
@@ -233,8 +258,37 @@ export default function MembersPage() {
                     Add Team Member
                   </h3>
                   <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px 0' }}>
-                    Members do not register themselves. Org Admin adds them and assigns temporary passwords for mobile app scanner access.
+                    Members do not register themselves. Org Admin adds them to the organization and generates temporary passwords for mobile app access.
                   </p>
+
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                    Profile Photo
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                    {imageUrl ? (
+                      <div style={{ position: 'relative' }}>
+                        <img src={imageUrl} alt="Preview" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2563EB' }} />
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl('')}
+                          style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#EF4444', color: '#FFF', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#F3F4F6', border: '2px dashed #D1D5DB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>account_circle</span>
+                      </div>
+                    )}
+                    <div>
+                      <label style={{ display: 'inline-block', backgroundColor: '#EFF6FF', color: '#2563EB', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+                        Upload Photo
+                        <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                      </label>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>PNG, JPG or WEBP up to 2MB</div>
+                    </div>
+                  </div>
 
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
                     Full Name
@@ -257,20 +311,8 @@ export default function MembersPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    style={{ width: '100%', padding: '10px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
                   />
-
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
-                    Assigned Temporary Role
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    style={{ width: '100%', padding: '10px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#FFFFFF', color: '#111827' }}
-                  >
-                    <option value="FRONTMAN">Frontman (Mobile App Scanner Staff)</option>
-                    <option value="ORGANIZER">Organizer (Event Coordinator)</option>
-                  </select>
 
                   {submitError && (
                     <div style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>
@@ -283,7 +325,7 @@ export default function MembersPage() {
                       Cancel
                     </button>
                     <button type="submit" disabled={isSubmitting} style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: isSubmitting ? 'default' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
-                      {isSubmitting ? 'Adding...' : 'Add Member & Generate Pass'}
+                      {isSubmitting ? 'Adding Member...' : 'Add Member'}
                     </button>
                   </div>
                 </form>

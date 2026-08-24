@@ -17,13 +17,14 @@ export async function GET(request: NextRequest) {
     const roleCheck = requireRole(user, ["ORG_ADMIN"]);
     if (roleCheck) return roleCheck;
 
-    const members = await db.user.findMany({
+    const members = await (db.user as any).findMany({
       where: { organizationId: user.organizationId },
       select: {
         id: true,
         fullName: true,
         email: true,
         role: true,
+        imageUrl: true,
         isTemporaryPassword: true,
         createdAt: true,
       },
@@ -49,7 +50,8 @@ export async function POST(request: NextRequest) {
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
-    const { fullName, email, role } = body;
+    const { fullName, email, imageUrl } = body;
+    const role = body.role || "FRONTMAN";
 
     if (typeof fullName !== "string" || !fullName.trim()) {
       return NextResponse.json({ error: "fullName is required." }, { status: 400 });
@@ -74,13 +76,14 @@ export async function POST(request: NextRequest) {
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
 
-    const member = await db.user.create({
+    const member = await (db.user as any).create({
       data: {
         organizationId: user.organizationId,
         fullName: fullName.trim(),
         email: normalizedEmail,
         passwordHash,
         role,
+        imageUrl: typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null,
         isTemporaryPassword: true,
       },
       select: {
@@ -88,6 +91,7 @@ export async function POST(request: NextRequest) {
         fullName: true,
         email: true,
         role: true,
+        imageUrl: true,
         isTemporaryPassword: true,
         createdAt: true,
       },

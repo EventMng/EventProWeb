@@ -34,6 +34,7 @@ model User {
   passwordHash        String   @map("password_hash")
   role                UserRole
   isTemporaryPassword Boolean  @default(false) @map("is_temporary_password")
+  imageUrl            String?  @map("image_url")
   createdAt           DateTime @default(now()) @map("created_at")
 
   createdEvents       Event[]            @relation("EventCreatedBy")

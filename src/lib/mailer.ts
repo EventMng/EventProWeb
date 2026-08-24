@@ -23,12 +23,14 @@ export async function sendQRInvitation(input: SendQRInvitationInput): Promise<bo
   // Create the QR image data URL (Base64)
   const qrImageDataUrl = await generateQRCodeDataURL(qrToken, 200);
 
-  // Nodemailer Transporter setup (for local testing or SMTP)
+  // Nodemailer Transporter setup (configured for Mailtrap / SMTP)
+  const port = Number(process.env.SMTP_PORT) || 587;
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-    port: Number(process.env.SMTP_PORT) || 587,
+    host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
+    port: port,
+    secure: port === 465,
     auth: {
-      user: process.env.SMTP_USER || '',
+      user: process.env.SMTP_USER || 'api',
       pass: process.env.SMTP_PASS || '',
     },
   });
@@ -61,20 +63,32 @@ export async function sendQRInvitation(input: SendQRInvitationInput): Promise<bo
 
   if (!process.env.SMTP_USER){
     console.warn(`SMTP is not configured. Email not sent to ${to} for event ${eventName}`);
-    console.log(`Embaded QR Image Length ${qrImageDataUrl.length} bytes\n`);
+    console.log(`Embedded QR Image Length ${qrImageDataUrl.length} bytes\n`);
     return true;
   }
 
-  // Send the email
-  await transporter.sendMail({
-    from: getMailFrom(),
-    to,
-    subject: `You're Invited! Your QR Ticket for ${eventName}`,
-    html: htmlContent,
-    text: `Hello ${participantName},\n\nYou are invited to ${eventName}.\nPlease find your QR Ticket embedded in the email.\n\nBest regards,\nEventPro Team`
-  });
+  // Optional Postmark Message Stream (defaults to outbound stream if omitted)
+  const headers: Record<string, string> = {};
+  if (process.env.POSTMARK_STREAM) {
+    headers['X-PM-Message-Stream'] = process.env.POSTMARK_STREAM;
+  }
 
-  return true;
+  // Send the email via SMTP
+  try {
+    const info = await transporter.sendMail({
+      from: getMailFrom(),
+      to,
+      subject: `You're Invited! Your QR Ticket for ${eventName}`,
+      html: htmlContent,
+      text: `Hello ${participantName},\n\nYou are invited to ${eventName}.\nPlease find your QR Ticket embedded in the email.\n\nBest regards,\nEventPro Team`,
+      headers,
+    });
+    console.log(`[SMTP] Email sent successfully to ${to} (Message ID: ${info.messageId})`);
+    return true;
+  } catch (error) {
+    console.error(`[SMTP] Failed to send email to ${to}:`, error);
+    return false;
+  }
 
 }
 
