@@ -26,6 +26,21 @@ interface EventDetail {
   status: 'Live' | 'Upcoming' | 'Completed';
 }
 
+interface EventStaffItem {
+  id: string;
+  fullName: string;
+  email: string;
+  imageUrl?: string | null;
+  role: string;
+  assignedAt: string;
+}
+
+interface OrgMemberOption {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 type RawRegistration = Omit<RegistrationItem, 'status'>;
 
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +56,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [filter, setFilter] = useState<'ALL' | 'CHECKED_IN' | 'REGISTERED' | 'NO_SHOW'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
+  // Event Staff states
+  const [eventStaff, setEventStaff] = useState<EventStaffItem[]>([]);
+  const [orgMembers, setOrgMembers] = useState<OrgMemberOption[]>([]);
+  const [showAssignStaffModal, setShowAssignStaffModal] = useState(false);
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [isAssigningStaff, setIsAssigningStaff] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
@@ -100,13 +123,72 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const fetchEventStaff = async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/staff`);
+      if (res.ok) setEventStaff(await res.json());
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchOrgMembers = async () => {
+    try {
+      const res = await fetch('/api/members');
+      if (res.ok) {
+        const data = await res.json();
+        setOrgMembers(data.map((m: any) => ({ id: m.id, fullName: m.fullName, email: m.email })));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       await fetchEventInfo();
       await fetchParticipants();
+      await fetchEventStaff();
+      await fetchOrgMembers();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+
+  const handleAssignStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaffId) return;
+
+    setIsAssigningStaff(true);
+    setAssignError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/staff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selectedStaffId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedStaffId('');
+        setShowAssignStaffModal(false);
+        fetchEventStaff();
+      } else {
+        setAssignError(data.error ?? 'Failed to assign staff member.');
+      }
+    } catch (err: any) {
+      setAssignError(err.message ?? 'Failed to assign staff.');
+    } finally {
+      setIsAssigningStaff(false);
+    }
+  };
+
+  const handleRemoveStaff = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/staff?userId=${userId}`, { method: 'DELETE' });
+      if (res.ok) fetchEventStaff();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -204,6 +286,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const unassignedMembers = orgMembers.filter(
+    (m) => !eventStaff.some((s) => s.id === m.id)
+  );
+
   return (
     <div
       style={{
@@ -234,7 +320,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           </Link>
         </div>
 
-        {/* Top Header matching Image 1 */}
+        {/* Top Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <div>
             <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: '0 0 6px 0', letterSpacing: '-0.02em' }}>
@@ -331,7 +417,97 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
 
-        {/* Card Container */}
+        {/* Assigned Event Staff Section */}
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB', marginBottom: '28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                ASSIGNED EVENT STAFF ({eventStaff.length})
+              </div>
+              <p style={{ fontSize: '13px', color: '#6B7280', margin: '4px 0 0 0', fontWeight: '600' }}>
+                Allocate organization members to scan ticket QR codes for this specific event.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAssignStaffModal(true)}
+              style={{
+                backgroundColor: '#F3E8FF',
+                color: '#7C3AED',
+                border: '1px solid #E9D5FF',
+                padding: '8px 16px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: "'Urbanist', sans-serif",
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span>
+              Assign Member to Event
+            </button>
+          </div>
+
+          {eventStaff.length === 0 ? (
+            <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px dashed #D1D5DB', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
+              No staff members assigned to scan tickets for this event yet. Click <strong>"Assign Member to Event"</strong> to assign event roles.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              {eventStaff.map((staff) => (
+                <div
+                  key={staff.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    backgroundColor: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#F3E8FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px', flexShrink: 0 }}>
+                      {staff.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontWeight: '700', fontSize: '14px', color: '#111827', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {staff.fullName}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                        <span style={{ backgroundColor: '#F3E8FF', color: '#7C3AED', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: '700' }}>
+                          FRONTMAN (MOBILE)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleRemoveStaff(staff.id)}
+                    title="Remove from Event"
+                    style={{
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: '#EF4444',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>remove_circle_outline</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Card Container - Participant List */}
         <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB' }}>
           {/* Top Label */}
           <div style={{ fontSize: '11px', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '20px' }}>
@@ -514,6 +690,58 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </tbody>
           </table>
         </div>
+
+        {/* Assign Staff Modal */}
+        {showAssignStaffModal && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+            <form onSubmit={handleAssignStaff} style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
+                Assign Event Staff
+              </h3>
+              <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px 0' }}>
+                Select an organization member to grant <strong>Frontman (Mobile Scanner)</strong> role for this event.
+              </p>
+
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                Select Staff Member
+              </label>
+              {unassignedMembers.length === 0 ? (
+                <div style={{ padding: '12px', backgroundColor: '#FEF3C7', color: '#D97706', borderRadius: '8px', fontSize: '13px', marginBottom: '20px' }}>
+                  All organization members are already assigned to this event or no other members exist.
+                </div>
+              ) : (
+                <select
+                  value={selectedStaffId}
+                  onChange={(e) => setSelectedStaffId(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '12px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#FFFFFF' }}
+                >
+                  <option value="">-- Choose Member --</option>
+                  {unassignedMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.fullName} ({m.email})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {assignError && (
+                <div style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>
+                  {assignError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" onClick={() => { setShowAssignStaffModal(false); setSelectedStaffId(''); setAssignError(null); }} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={isAssigningStaff || unassignedMembers.length === 0} style={{ padding: '10px 18px', backgroundColor: '#7C3AED', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', opacity: (isAssigningStaff || unassignedMembers.length === 0) ? 0.6 : 1 }}>
+                  {isAssigningStaff ? 'Assigning...' : 'Assign Role'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Add Modal */}
         {showAddModal && (
