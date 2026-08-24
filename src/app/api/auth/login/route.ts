@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         organizationId: user.organizationId,
         isTemporaryPassword: user.isTemporaryPassword,
-        imageUrl: user.imageUrl,
+        imageUrl: (user as any).imageUrl ?? null,
       },
     });
 

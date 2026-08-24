@@ -200,13 +200,11 @@ export default function MembersPage() {
               <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
                 <th style={{ padding: '12px 16px' }}>NAME</th>
                 <th style={{ padding: '12px 16px' }}>EMAIL (USERNAME)</th>
-                <th style={{ padding: '12px 16px' }}>ASSIGNED ROLE</th>
                 <th style={{ padding: '12px 16px' }}>APP CREDENTIALS</th>
               </tr>
             </thead>
             <tbody>
               {members.map((member) => {
-                const roleBadge = getRoleBadge(member.role);
                 return (
                   <tr key={member.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                     <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -221,11 +219,6 @@ export default function MembersPage() {
                     </td>
                     <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
                       {member.email}
-                    </td>
-                    <td style={{ padding: '18px 16px' }}>
-                      <span style={{ backgroundColor: roleBadge.bg, color: roleBadge.color, padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: '700' }}>
-                        {roleBadge.label}
-                      </span>
                     </td>
                     <td style={{ padding: '18px 16px' }}>
                       {member.tempPassword ? (
