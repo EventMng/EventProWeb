@@ -49,6 +49,27 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [ticketType, setTicketType] = useState('General');
   const [csvText, setCsvText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isSendingPasses, setIsSendingPasses] = useState(false);
+  const [sendSuccessMsg, setSendSuccessMsg] = useState<string | null>(null);
+
+  const handleSendSelectedPasses = async () => {
+    const targets = selectedIds.length > 0 ? selectedIds : registrations.map(r => r.id);
+    if (targets.length === 0) return alert('No participants to send passes to.');
+
+    setIsSendingPasses(true);
+    let successCount = 0;
+    for (const id of targets) {
+      try {
+        const res = await fetch(`/api/participants/${id}/resend`, { method: 'POST' });
+        if (res.ok) successCount++;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setIsSendingPasses(false);
+    setSendSuccessMsg(`Successfully dispatched ${successCount} QR ticket pass(es)!`);
+    setTimeout(() => setSendSuccessMsg(null), 5000);
+  };
 
   const fetchEventInfo = async () => {
     try {
@@ -235,6 +256,30 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
           <div style={{ display: 'flex', gap: '12px' }}>
             <button
+              onClick={handleSendSelectedPasses}
+              disabled={isSendingPasses}
+              style={{
+                backgroundColor: '#059669',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '12px',
+                fontWeight: '700',
+                fontSize: '14px',
+                cursor: isSendingPasses ? 'default' : 'pointer',
+                fontFamily: "'Urbanist', sans-serif",
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
+                opacity: isSendingPasses ? 0.7 : 1,
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>
+              {isSendingPasses ? 'Sending Passes...' : selectedIds.length > 0 ? `Send Passes (${selectedIds.length})` : 'Send Passes (Invitations)'}
+            </button>
+
+            <button
               onClick={() => setShowCsvModal(true)}
               style={{
                 border: '1.5px solid #E5E7EB',
@@ -278,6 +323,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </button>
           </div>
         </div>
+
+        {sendSuccessMsg && (
+          <div style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', padding: '14px 20px', borderRadius: '12px', marginBottom: '24px', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="material-symbols-outlined">mark_email_read</span>
+            {sendSuccessMsg}
+          </div>
+        )}
 
         {/* Card Container */}
         <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E5E7EB' }}>
@@ -496,7 +548,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
                 <button type="submit" disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                  {submitting ? 'Adding...' : 'Add & Send Ticket'}
+                  {submitting ? 'Adding...' : 'Add Participant'}
                 </button>
               </div>
             </form>
@@ -532,7 +584,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button onClick={() => setShowCsvModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
                 <button onClick={handleCsvImport} disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                  {submitting ? 'Importing...' : 'Import & Dispatch Tickets'}
+                  {submitting ? 'Importing...' : 'Import Participants'}
                 </button>
               </div>
             </div>
