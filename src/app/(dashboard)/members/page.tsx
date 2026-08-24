@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/shared/Sidebar';
 
 interface MemberItem {
@@ -12,39 +12,85 @@ interface MemberItem {
   tempPassword?: string;
 }
 
+interface ApiMember {
+  id: string;
+  fullName: string;
+  email: string;
+  role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN' | 'SYSTEM_ADMIN';
+  isTemporaryPassword: boolean;
+}
+
+function toMemberItem(m: ApiMember): MemberItem {
+  return {
+    id: m.id,
+    name: m.fullName,
+    email: m.email,
+    role: m.role as MemberItem['role'],
+    status: m.isTemporaryPassword ? 'Temp Password Issued' : 'Active',
+  };
+}
+
 export default function MembersPage() {
-  const [members, setMembers] = useState<MemberItem[]>([
-    { id: '1', name: 'Sanduni Perera', email: 'sanduni@apexevents.com', role: 'ORG_ADMIN', status: 'Active' },
-    { id: '2', name: 'Kamal Jayawardena', email: 'kamal@apexevents.com', role: 'FRONTMAN', status: 'Temp Password Issued', tempPassword: 'Pass#9824' },
-    { id: '3', name: 'Nimal Fernando', email: 'nimal@apexevents.com', role: 'FRONTMAN', status: 'Active' },
-    { id: '4', name: 'Dilshan Silva', email: 'dilshan@apexevents.com', role: 'ORGANIZER', status: 'Active' },
-  ]);
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'ORGANIZER' | 'FRONTMAN'>('FRONTMAN');
   const [issuedTempPass, setIssuedTempPass] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddMember = (e: React.FormEvent) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMembers() {
+      try {
+        const res = await fetch('/api/members');
+        if (!res.ok) throw new Error(`Failed to load members (${res.status})`);
+        const data: ApiMember[] = await res.json();
+        if (!cancelled) setMembers(data.map(toMemberItem));
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err.message ?? 'Failed to load members');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    loadMembers();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !email) return;
 
-    // Generate temporary password for Mobile App login
-    const randomCode = Math.floor(1000 + Math.random() * 9000);
-    const tempPass = `Temp#${randomCode}`;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, role }),
+      });
+      const data = await res.json();
 
-    const newMember: MemberItem = {
-      id: Date.now().toString(),
-      name: fullName,
-      email: email.trim().toLowerCase(),
-      role: role,
-      status: 'Temp Password Issued',
-      tempPassword: tempPass,
-    };
+      if (!res.ok) {
+        setSubmitError(data.error === 'EMAIL_TAKEN' ? 'That email is already in use.' : (data.error ?? 'Failed to add member.'));
+        return;
+      }
 
-    setMembers([...members, newMember]);
-    setIssuedTempPass(tempPass);
+      setMembers((prev) => [...prev, toMemberItem(data.member)]);
+      setIssuedTempPass(data.tempPassword);
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Failed to add member.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCloseModal = () => {
@@ -53,6 +99,7 @@ export default function MembersPage() {
     setEmail('');
     setRole('FRONTMAN');
     setIssuedTempPass(null);
+    setSubmitError(null);
   };
 
   const getRoleBadge = (role: string) => {
@@ -119,6 +166,17 @@ export default function MembersPage() {
             ALL TEAM MEMBERS ({members.length})
           </div>
 
+          {isLoading && (
+            <div style={{ padding: '24px', color: '#6B7280', fontSize: '14px' }}>Loading members...</div>
+          )}
+
+          {loadError && (
+            <div style={{ padding: '16px', backgroundColor: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', fontSize: '13px', marginBottom: '16px' }}>
+              {loadError}
+            </div>
+          )}
+
+          {!isLoading && !loadError && (
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
@@ -162,6 +220,7 @@ export default function MembersPage() {
               })}
             </tbody>
           </table>
+          )}
         </div>
 
         {/* Add Member Modal */}
@@ -213,12 +272,18 @@ export default function MembersPage() {
                     <option value="ORGANIZER">Organizer (Event Coordinator)</option>
                   </select>
 
+                  {submitError && (
+                    <div style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>
+                      {submitError}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                     <button type="button" onClick={handleCloseModal} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>
                       Cancel
                     </button>
-                    <button type="submit" style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                      Add Member & Generate Pass
+                    <button type="submit" disabled={isSubmitting} style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: isSubmitting ? 'default' : 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                      {isSubmitting ? 'Adding...' : 'Add Member & Generate Pass'}
                     </button>
                   </div>
                 </form>
