@@ -10,6 +10,7 @@ const db = new PrismaClient();
 const DEV_ORG_ID = '00000000-0000-4000-8000-000000000001';
 const DEV_USER_ID = '00000000-0000-4000-8000-000000000002';
 const DEV_FRONTMAN_USER_ID = '00000000-0000-4000-8000-000000000003';
+const DEV_ORGANIZER_USER_ID = '00000000-0000-4000-8000-000000000004';
 
 async function hashPassword(password) {
   const salt = randomBytes(16).toString('hex');
@@ -52,7 +53,21 @@ async function main() {
     },
   });
 
-  console.log('Seeded dev org + org admin + frontman users.');
+  await db.user.upsert({
+    where: { id: DEV_ORGANIZER_USER_ID },
+    update: {},
+    create: {
+      id: DEV_ORGANIZER_USER_ID,
+      organizationId: DEV_ORG_ID,
+      fullName: 'Kamal Perera',
+      email: 'dev-organizer@eventpro.local',
+      passwordHash: await hashPassword('dev-only-not-a-real-password'),
+      role: 'ORGANIZER',
+      isTemporaryPassword: false,
+    },
+  });
+
+  console.log('Seeded dev org + org admin + frontman + organizer users.');
 }
 
 main()

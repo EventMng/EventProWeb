@@ -2,16 +2,51 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export function Sidebar() {
   const pathname = usePathname();
 
-  const menuItems = [
-    { name: 'Dashboard', href: '/', icon: 'dashboard' },
-    { name: 'Events', href: '/events', icon: 'calendar_today' },
-    { name: 'Members', href: '/members', icon: 'badge' },
-    { name: 'Settings', href: '/admin', icon: 'settings' },
-  ];
+  // Set initial role based on pathname to avoid UI flash during SSR/initial render
+  const initialRole = pathname.startsWith('/organizer') ? 'ORGANIZER' : 'ORG_ADMIN';
+  const [role, setRole] = useState<'ORG_ADMIN' | 'ORGANIZER'>(initialRole);
+
+  useEffect(() => {
+    let activeRole: 'ORG_ADMIN' | 'ORGANIZER' = 'ORG_ADMIN';
+    if (pathname.startsWith('/organizer')) {
+      activeRole = 'ORGANIZER';
+      localStorage.setItem('eventpro_user_role', 'ORGANIZER');
+    } else if (pathname === '/' || pathname.startsWith('/admin') || pathname.startsWith('/members')) {
+      activeRole = 'ORG_ADMIN';
+      localStorage.setItem('eventpro_user_role', 'ORG_ADMIN');
+    } else {
+      // For general routes like /events, check localStorage to preserve state
+      const saved = localStorage.getItem('eventpro_user_role');
+      if (saved === 'ORGANIZER') {
+        activeRole = 'ORGANIZER';
+      }
+    }
+    setRole(activeRole);
+  }, [pathname]);
+
+  const menuItems = role === 'ORGANIZER'
+    ? [
+      { name: 'Dashboard', href: '/organizer', icon: 'dashboard' },
+      { name: 'Events', href: '/events', icon: 'calendar_today' },
+      { name: 'Participants', href: '/participants', icon: 'group' },
+      { name: 'Members', href: '/members', icon: 'badge' },
+      { name: 'Settings', href: '/admin', icon: 'settings' },
+    ]
+    : [
+      { name: 'Dashboard', href: '/', icon: 'dashboard' },
+      { name: 'Events', href: '/events', icon: 'calendar_today' },
+      { name: 'Members', href: '/members', icon: 'badge' },
+      { name: 'Settings', href: '/admin', icon: 'settings' },
+    ];
+
+  const profile = role === 'ORGANIZER'
+    ? { name: 'Kamal Perera', roleLabel: 'Event Organizer', initial: 'K' }
+    : { name: 'Sanduni Perera', roleLabel: 'Org Admin', initial: 'S' };
 
   return (
     <aside
@@ -55,8 +90,8 @@ export function Sidebar() {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {menuItems.map((item) => {
             const isActive =
-              item.href === '/'
-                ? pathname === '/' || pathname === '/(dashboard)' || pathname === ''
+              item.href === '/' || item.href === '/organizer'
+                ? pathname === item.href || pathname === '/(dashboard)' || pathname === ''
                 : pathname.startsWith(item.href);
 
             return (
@@ -111,14 +146,14 @@ export function Sidebar() {
             fontSize: '13px',
           }}
         >
-          S
+          {profile.initial}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', lineHeight: '1.2' }}>
-            Sanduni Perera
+            {profile.name}
           </span>
           <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '600' }}>
-            Org Admin
+            {profile.roleLabel}
           </span>
         </div>
       </div>
