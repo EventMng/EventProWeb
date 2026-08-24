@@ -15,8 +15,13 @@ export async function GET(request: NextRequest) {
     const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER', 'FRONTMAN']);
     if (roleCheck) return roleCheck;
 
+    const whereClause: any = { organizationId: user.organizationId };
+    if (user.role === "FRONTMAN") {
+      whereClause.frontmen = { some: { userId: user.id } };
+    }
+
     const events = await db.event.findMany({
-      where: { organizationId: user.organizationId },
+      where: whereClause,
       include: { registrations: { select: { attended: true } } },
       orderBy: { eventDate: 'desc' },
     });
