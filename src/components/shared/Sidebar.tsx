@@ -1,11 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      localStorage.removeItem('eventpro_user_role');
+      router.push('/login');
+    }
+  };
 
   // Set initial role based on pathname to avoid UI flash during SSR/initial render
   const initialRole = pathname.startsWith('/organizer') ? 'ORGANIZER' : 'ORG_ADMIN';
@@ -130,32 +142,61 @@ export function Sidebar() {
       </div>
 
       {/* Bottom Profile / App Indicator (Matching Image 1) */}
-      <div style={{ paddingLeft: '4px', paddingTop: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <div
+      <div>
+        <div style={{ paddingLeft: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              backgroundColor: '#2563EB',
+              border: '1.5px solid #3B82F6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              fontWeight: '800',
+              fontSize: '13px',
+            }}
+          >
+            {profile.initial}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', lineHeight: '1.2' }}>
+              {profile.name}
+            </span>
+            <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '600' }}>
+              {profile.roleLabel}
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
           style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            backgroundColor: '#2563EB',
-            border: '1.5px solid #3B82F6',
+            width: '100%',
+            marginTop: '16px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            color: '#FFFFFF',
-            fontWeight: '800',
-            fontSize: '13px',
+            gap: '12px',
+            padding: '10px 16px',
+            borderRadius: '12px',
+            border: 'none',
+            backgroundColor: 'transparent',
+            color: '#9CA3AF',
+            fontSize: '15px',
+            fontWeight: '700',
+            fontFamily: "'Urbanist', sans-serif",
+            cursor: isLoggingOut ? 'default' : 'pointer',
+            opacity: isLoggingOut ? 0.6 : 1,
           }}
         >
-          {profile.initial}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF', lineHeight: '1.2' }}>
-            {profile.name}
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#9CA3AF' }}>
+            logout
           </span>
-          <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '600' }}>
-            {profile.roleLabel}
-          </span>
-        </div>
+          <span>{isLoggingOut ? 'Logging out…' : 'Log out'}</span>
+        </button>
       </div>
     </aside>
   );
