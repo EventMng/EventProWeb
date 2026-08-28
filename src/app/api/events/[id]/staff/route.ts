@@ -91,7 +91,13 @@ export async function POST(
 
     // Check user belongs to organization
     const targetUser = await db.user.findFirst({
-      where: { id: userId, organizationId: user.organizationId },
+      where: {
+        id: userId,
+        OR: [
+          { organizationId: user.organizationId },
+          { organizations: { some: { id: user.organizationId } } },
+        ],
+      },
     });
 
     if (!targetUser) {

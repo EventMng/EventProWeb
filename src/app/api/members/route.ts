@@ -17,8 +17,13 @@ export async function GET(request: NextRequest) {
     const roleCheck = requireRole(user, ["ORG_ADMIN"]);
     if (roleCheck) return roleCheck;
 
-    const members = await (db.user as any).findMany({
-      where: { organizationId: user.organizationId },
+    const members = await db.user.findMany({
+      where: {
+        OR: [
+          { organizationId: user.organizationId },
+          { organizations: { some: { id: user.organizationId } } },
+        ],
+      },
       select: {
         id: true,
         fullName: true,
@@ -38,7 +43,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/members — add a member and issue a temporary mobile-app password
+// POST /api/members — add a member (or link existing user) to organization
 export async function POST(request: NextRequest) {
   try {
     const user = await getSessionUser(request);
@@ -68,17 +73,56 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    const existing = await db.user.findUnique({ where: { email: normalizedEmail } });
+    // Check if user already exists in system
+    const existing = await db.user.findUnique({
+      where: { email: normalizedEmail },
+      include: { organizations: { select: { id: true } } },
+    });
+
     if (existing) {
-      return NextResponse.json({ error: "EMAIL_TAKEN" }, { status: 409 });
+      // Check if user is ALREADY a member of this organization
+      const isAlreadyMember =
+        existing.organizationId === user.organizationId ||
+        existing.organizations.some((o) => o.id === user.organizationId);
+
+      if (isAlreadyMember) {
+        return NextResponse.json({ error: "ALREADY_MEMBER" }, { status: 409 });
+      }
+
+      // Link existing user to this organization
+      const updatedMember = await db.user.update({
+        where: { id: existing.id },
+        data: {
+          organizations: {
+            connect: { id: user.organizationId },
+          },
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+          imageUrl: true,
+          isTemporaryPassword: true,
+          createdAt: true,
+        },
+      });
+
+      return NextResponse.json(
+        { member: updatedMember, isExistingUser: true },
+        { status: 200 }
+      );
     }
 
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
 
-    const member = await (db.user as any).create({
+    const member = await db.user.create({
       data: {
         organizationId: user.organizationId,
+        organizations: {
+          connect: { id: user.organizationId },
+        },
         fullName: fullName.trim(),
         email: normalizedEmail,
         passwordHash,

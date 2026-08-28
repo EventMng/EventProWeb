@@ -18,7 +18,8 @@ model Organization {
   id            String         @id @default(uuid())
   name          String
   createdAt     DateTime       @default(now()) @map("created_at")
-  users         User[]
+  primaryUsers  User[]         @relation("PrimaryOrganization")
+  members       User[]         @relation("OrganizationMembers")
   events        Event[]
   participants  Participant[]
 
@@ -27,8 +28,9 @@ model Organization {
 
 model User {
   id                  String   @id @default(uuid())
-  organizationId      String   @map("organization_id")
-  organization        Organization @relation(fields: [organizationId], references: [id])
+  organizationId      String?  @map("organization_id")
+  primaryOrganization Organization? @relation("PrimaryOrganization", fields: [organizationId], references: [id])
+  organizations       Organization[] @relation("OrganizationMembers")
   fullName            String   @map("full_name")
   email               String   @unique
   passwordHash        String   @map("password_hash")
