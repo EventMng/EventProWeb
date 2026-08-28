@@ -40,24 +40,30 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hashPassword(password);
 
-    const user = await db.$transaction(async (tx) => {
-      const organization = await tx.organization.create({
-        data: { name: organizationName.trim() },
-      });
+    const user = await db.$transaction(
+      async (tx) => {
+        const organization = await tx.organization.create({
+          data: { name: organizationName.trim() },
+        });
 
-      return tx.user.create({
-        data: {
-          organizationId: organization.id,
-          organizations: {
-            connect: { id: organization.id },
+        return tx.user.create({
+          data: {
+            organizationId: organization.id,
+            organizations: {
+              connect: { id: organization.id },
+            },
+            fullName: fullName.trim(),
+            email: normalizedEmail,
+            passwordHash,
+            role: "ORG_ADMIN",
           },
-          fullName: fullName.trim(),
-          email: normalizedEmail,
-          passwordHash,
-          role: "ORG_ADMIN",
-        },
-      });
-    });
+        });
+      },
+      {
+        maxWait: 15000,
+        timeout: 30000,
+      }
+    );
 
     const secret = process.env.NEXTAUTH_SECRET;
     if (!secret) {
