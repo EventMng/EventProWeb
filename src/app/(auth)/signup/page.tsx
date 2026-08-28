@@ -1,30 +1,81 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type RegisterResponse = {
+  message: string;
+  token: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN';
+    organizationId: string;
+    isTemporaryPassword: boolean;
+    imageUrl: string | null;
+  };
+};
+
 export default function SignupPage() {
+  const router = useRouter();
+  const [organizationName, setOrganizationName] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError('Please enter a valid email address');
       return;
     }
 
-    // TODO: no account-creation endpoint exists yet — src/app/api/auth/
-    // only has login/route.ts. Wire this up to the real signup endpoint
-    // (fetch + redirect/cookie handling, same pattern as login/page.tsx)
-    // once it's built. Not calling anything or faking success in the
-    // meantime.
-    setError("Sign-up isn't available yet — the account-creation API hasn't been built.");
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationName, fullName, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? 'Unable to create your account.');
+        return;
+      }
+
+      const { user } = data as RegisterResponse;
+      void user;
+
+      // The session cookie is already set httpOnly by the API — no token
+      // handling needed here, ORG_ADMIN always lands on the admin dashboard.
+      router.push('/');
+    } catch {
+      setError('Unable to reach the server. Check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -117,6 +168,29 @@ export default function SignupPage() {
 
           <div style={{ marginBottom: '18px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+              Organization name
+            </label>
+            <input
+              type="text"
+              value={organizationName}
+              onChange={(e) => setOrganizationName(e.target.value)}
+              required
+              autoComplete="organization"
+              placeholder="Acme Events Ltd"
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                border: '1px solid #E5E7EB',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                fontFamily: "'Urbanist', sans-serif",
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '18px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
               Full name
             </label>
             <input
@@ -170,6 +244,7 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={8}
               autoComplete="new-password"
               placeholder="••••••••"
               style={{
@@ -193,6 +268,7 @@ export default function SignupPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              minLength={8}
               autoComplete="new-password"
               placeholder="••••••••"
               style={{
@@ -209,6 +285,7 @@ export default function SignupPage() {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             style={{
               width: '100%',
               backgroundColor: '#2563EB',
@@ -218,12 +295,13 @@ export default function SignupPage() {
               borderRadius: '12px',
               fontSize: '14px',
               fontWeight: '700',
-              cursor: 'pointer',
+              cursor: isSubmitting ? 'default' : 'pointer',
               fontFamily: "'Urbanist', sans-serif",
               boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+              opacity: isSubmitting ? 0.7 : 1,
             }}
           >
-            Sign up
+            {isSubmitting ? 'Creating your account…' : 'Sign up'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: '13px', color: '#6B7280', fontWeight: '600', marginTop: '20px' }}>

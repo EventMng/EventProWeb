@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type LoginResponse = {
   message: string;
   token: string;
@@ -28,6 +30,12 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
