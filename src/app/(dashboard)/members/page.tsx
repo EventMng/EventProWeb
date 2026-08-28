@@ -98,13 +98,23 @@ export default function MembersPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setSubmitError(data.error === 'EMAIL_TAKEN' ? 'That email is already in use.' : (data.error ?? 'Failed to add member.'));
+        if (data.error === 'ALREADY_MEMBER') {
+          setSubmitError('This member is already in your organization.');
+        } else if (data.error === 'EMAIL_TAKEN') {
+          setSubmitError('That email is already in use.');
+        } else {
+          setSubmitError(data.error ?? 'Failed to add member.');
+        }
         return;
       }
 
       const newItem = toMemberItem(data.member);
-      setMembers((prev) => [...prev, newItem]);
-      setIssuedTempPass('ADDED');
+      setMembers((prev) => {
+        // Prevent duplicate items in state if already present
+        if (prev.some((m) => m.id === newItem.id)) return prev;
+        return [...prev, newItem];
+      });
+      setIssuedTempPass(data.isExistingUser ? 'EXISTING_LINKED' : 'ADDED');
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to add member.');
     } finally {
@@ -328,10 +338,12 @@ export default function MembersPage() {
                   <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#059669' }}>check_circle</span>
                     <h3 style={{ margin: '8px 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
-                      Member Added Successfully!
+                      {issuedTempPass === 'EXISTING_LINKED' ? 'Member Linked Successfully!' : 'Member Added Successfully!'}
                     </h3>
                     <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
-                      Member has been added to your organization team.
+                      {issuedTempPass === 'EXISTING_LINKED'
+                        ? 'Existing user account was added as a member of your organization.'
+                        : 'Member has been added to your organization team.'}
                     </p>
                   </div>
 
@@ -339,10 +351,18 @@ export default function MembersPage() {
                     <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: '700', marginBottom: '4px' }}>MEMBER EMAIL</div>
                     <div style={{ fontSize: '15px', fontWeight: '800', color: '#111827', marginBottom: '8px' }}>{email}</div>
 
-                    <div style={{ fontSize: '12px', color: '#2563EB', fontWeight: '700', marginTop: '8px' }}>💡 FRONTMAN MOBILE APP ACCESS</div>
-                    <div style={{ fontSize: '13px', color: '#4B5563', marginTop: '4px' }}>
-                      To issue mobile app scanner credentials, go to an <strong>Event</strong> and assign this member as an <strong>Event Frontman</strong>.
-                    </div>
+                    {issuedTempPass === 'EXISTING_LINKED' ? (
+                      <div style={{ fontSize: '13px', color: '#059669', marginTop: '8px', fontWeight: '600' }}>
+                        ✓ This user can now log into your organization using their existing password.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '12px', color: '#2563EB', fontWeight: '700', marginTop: '8px' }}>💡 FRONTMAN MOBILE APP ACCESS</div>
+                        <div style={{ fontSize: '13px', color: '#4B5563', marginTop: '4px' }}>
+                          To issue mobile app scanner credentials, go to an <strong>Event</strong> and assign this member as an <strong>Event Frontman</strong>.
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <button

@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
       return tx.user.create({
         data: {
           organizationId: organization.id,
+          organizations: {
+            connect: { id: organization.id },
+          },
           fullName: fullName.trim(),
           email: normalizedEmail,
           passwordHash,

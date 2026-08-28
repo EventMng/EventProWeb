@@ -27,10 +27,17 @@ async function main() {
 
   await db.user.upsert({
     where: { id: DEV_USER_ID },
-    update: {},
+    update: {
+      organizations: {
+        connect: { id: DEV_ORG_ID },
+      },
+    },
     create: {
       id: DEV_USER_ID,
       organizationId: DEV_ORG_ID,
+      organizations: {
+        connect: { id: DEV_ORG_ID },
+      },
       fullName: 'Dev Admin',
       email: 'dev-admin@eventpro.local',
       passwordHash: await hashPassword('dev-only-not-a-real-password'),
@@ -41,10 +48,17 @@ async function main() {
 
   await db.user.upsert({
     where: { id: DEV_FRONTMAN_USER_ID },
-    update: {},
+    update: {
+      organizations: {
+        connect: { id: DEV_ORG_ID },
+      },
+    },
     create: {
       id: DEV_FRONTMAN_USER_ID,
       organizationId: DEV_ORG_ID,
+      organizations: {
+        connect: { id: DEV_ORG_ID },
+      },
       fullName: 'Dev Frontman',
       email: 'dev-frontman@eventpro.local',
       passwordHash: await hashPassword('dev-only-not-a-real-password'),
@@ -55,10 +69,17 @@ async function main() {
 
   await db.user.upsert({
     where: { id: DEV_ORGANIZER_USER_ID },
-    update: {},
+    update: {
+      organizations: {
+        connect: { id: DEV_ORG_ID },
+      },
+    },
     create: {
       id: DEV_ORGANIZER_USER_ID,
       organizationId: DEV_ORG_ID,
+      organizations: {
+        connect: { id: DEV_ORG_ID },
+      },
       fullName: 'Kamal Perera',
       email: 'dev-organizer@eventpro.local',
       passwordHash: await hashPassword('dev-only-not-a-real-password'),
