@@ -19,6 +19,26 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // "New event" is hidden for ORG_ADMIN — only Organizers create events from
+  // this page. Starts null (nothing shown) so admins never see a flash of
+  // the button before their role is known.
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.user?.role) setViewerRole(data.user.role);
+      })
+      .catch(() => {
+        // Leave viewerRole null on failure — button stays hidden, the safe default.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventLocation, setEventLocation] = useState('');
@@ -166,27 +186,29 @@ export default function EventsPage() {
             Events
           </h1>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            style={{
-              backgroundColor: '#F97316',
-              color: '#FFFFFF',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontFamily: "'Urbanist', sans-serif",
-              boxShadow: '0 2px 4px rgba(249, 115, 22, 0.2)',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-            New event
-          </button>
+          {viewerRole && viewerRole !== 'ORG_ADMIN' && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                backgroundColor: '#F97316',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: "'Urbanist', sans-serif",
+                boxShadow: '0 2px 4px rgba(249, 115, 22, 0.2)',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
+              New event
+            </button>
+          )}
         </div>
 
         {/* Table Container */}
