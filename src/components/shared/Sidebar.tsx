@@ -64,6 +64,7 @@ export function Sidebar() {
         activeRole = 'ORGANIZER';
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberately deferred to an effect: reading localStorage during render would cause an SSR/hydration mismatch, which is exactly why initialRole above is used for the first render instead.
     setRole(activeRole);
   }, [pathname]);
 

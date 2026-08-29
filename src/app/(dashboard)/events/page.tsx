@@ -83,8 +83,8 @@ export default function EventsPage() {
       setEventName('');
       setEventLocation('');
       setEventDateStr('');
-    } catch (err: any) {
-      setCreateError(err.message ?? 'Failed to create event');
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create event');
     } finally {
       setCreating(false);
     }

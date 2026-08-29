@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(members);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to fetch members:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     // tempPassword is only ever returned here — it isn't stored in plaintext.
     return NextResponse.json({ member, tempPassword }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to add member:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

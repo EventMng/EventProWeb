@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     const data = buckets.map((b) => ({ ...b, peak: maxCount > 0 && b.count === maxCount }));
 
     return NextResponse.json({ range, data });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to fetch dashboard traffic:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

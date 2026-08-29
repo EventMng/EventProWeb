@@ -52,8 +52,8 @@ export async function verifyToken(token: string):
       valid: true,
       payload: payload as unknown as QRTokenPayload
     };
-  } catch (error: any) {
-    if (error?.name === 'JWTExpired') {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'JWTExpired') {
       return {
         valid: false,
         error: 'EXPIRED_TOKEN'

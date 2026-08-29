@@ -138,7 +138,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       const res = await fetch('/api/members');
       if (res.ok) {
         const data = await res.json();
-        setOrgMembers(data.map((m: any) => ({ id: m.id, fullName: m.fullName, email: m.email })));
+        setOrgMembers(
+          data.map((m: { id: string; fullName: string; email: string }) => ({
+            id: m.id,
+            fullName: m.fullName,
+            email: m.email,
+          }))
+        );
       }
     } catch (err) {
       console.error(err);
@@ -184,8 +190,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       } else {
         setAssignError(data.error ?? 'Failed to assign staff member.');
       }
-    } catch (err: any) {
-      setAssignError(err.message ?? 'Failed to assign staff.');
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : 'Failed to assign staff.');
     } finally {
       setIsAssigningStaff(false);
     }
@@ -462,7 +468,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
           {eventStaff.length === 0 ? (
             <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px dashed #D1D5DB', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
-              No staff members assigned to scan tickets for this event yet. Click <strong>"Assign Member to Event"</strong> to assign event roles.
+              No staff members assigned to scan tickets for this event yet. Click <strong>&quot;Assign Member to Event&quot;</strong> to assign event roles.
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>

@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       errorsCount: errors.length,
       errors,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('CSV import failed:', error);
     return NextResponse.json({ error: 'Failed to process CSV import' }, { status: 500 });
   }

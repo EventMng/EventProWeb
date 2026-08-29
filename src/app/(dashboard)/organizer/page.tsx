@@ -51,6 +51,7 @@ export default function OrganizerDashboardPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchEvents is the standard mount-time data load (async, sets state only after the fetch resolves); this isn't the synchronous-render-loop pattern the rule targets.
     fetchEvents();
   }, []);
 
@@ -90,8 +91,8 @@ export default function OrganizerDashboardPage() {
 
       // Refresh events
       await fetchEvents();
-    } catch (err: any) {
-      setCreateError(err.message ?? 'An unexpected error occurred');
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setCreating(false);
     }

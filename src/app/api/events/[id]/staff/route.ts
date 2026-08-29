@@ -52,7 +52,7 @@ export async function GET(
     }));
 
     return NextResponse.json(staff);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to fetch event staff:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -156,7 +156,7 @@ export async function POST(
       },
       tempPassword,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to assign staff to event:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
@@ -192,7 +192,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: "Member removed from event successfully" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to remove staff from event:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

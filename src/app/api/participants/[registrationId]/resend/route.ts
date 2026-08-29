@@ -42,7 +42,7 @@ export async function POST(
     });
 
     return NextResponse.json({ message: 'Ticket resent', registrationId });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to resend ticket:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

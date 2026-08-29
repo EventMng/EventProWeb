@@ -14,16 +14,25 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Google Font: Urbanist */}
+        {/* Google Font: Urbanist. Loaded via <link> rather than next/font/google
+            because dozens of components across the app reference the family by
+            its literal name (fontFamily: "'Urbanist', sans-serif") in inline
+            styles — next/font would scope it under a generated class instead,
+            breaking all of those. no-page-custom-font is a Pages Router rule
+            that doesn't apply to this App Router layout (there's no
+            pages/_document.js), so it's a known false positive here. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap"
           rel="stylesheet"
         />
-        {/* Google Font: Material Symbols Outlined */}
+        {/* Google Font: Material Symbols Outlined (icon font, used via ligature
+            text like <span className="material-symbols-outlined">) */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=optional"
           rel="stylesheet"
         />
       </head>

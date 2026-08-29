@@ -50,7 +50,7 @@ export async function PATCH(
     });
 
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to update participant:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
@@ -80,7 +80,7 @@ export async function DELETE(
     await db.eventRegistration.delete({ where: { id: registrationId } });
 
     return NextResponse.json({ message: 'Removed from event', registrationId });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to remove participant:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       organizationId: user.organizationId,
       organizationName: user.primaryOrganization.name,
       isTemporaryPassword: user.isTemporaryPassword,
-      imageUrl: (user as any).imageUrl ?? null,
+      imageUrl: user.imageUrl ?? null,
     },
   });
 }

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       upcomingEvents: upcomingEvents.length,
       nextEvent,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to fetch dashboard summary:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
