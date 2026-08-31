@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         organizationId: user.organizationId,
         isTemporaryPassword: user.isTemporaryPassword,
-        imageUrl: (user as any).imageUrl ?? null,
+        imageUrl: user.imageUrl ?? null,
       },
     });
 
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error) {
     console.error("Register API error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

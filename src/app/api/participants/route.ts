@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(registrations);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to fetch participants:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to register participant:', error);
     return NextResponse.json(
       { error: 'Failed to process participant registration' },

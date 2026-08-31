@@ -38,7 +38,7 @@ export async function GET(
       totalRegistrations: event.registrations.length,
       checkedInCount: event.registrations.filter((r) => r.attended).length,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to fetch event:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

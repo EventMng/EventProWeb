@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
     const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER', 'FRONTMAN']);
     if (roleCheck) return roleCheck;
 
-    const whereClause: any = { organizationId: user.organizationId };
+    const whereClause: Prisma.EventWhereInput = { organizationId: user.organizationId };
     if (user.role === "FRONTMAN") {
       whereClause.frontmen = { some: { userId: user.id } };
     }
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json(formatted);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to fetch events:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Failed to create event:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

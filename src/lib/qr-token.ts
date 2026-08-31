@@ -1,6 +1,19 @@
 import { SignJWT, jwtVerify } from "jose";
-import { QRTokenPayload } from '@your-org/event-system-shared';
 import qrcode from 'qrcode';
+
+// Mirrors the QRTokenPayload shape from the SharedComponents monorepo
+// package (@your-org/event-system-shared). Defined locally instead of
+// imported from there because that package lives in a sibling repo
+// (../SharedComponents) that isn't built locally and isn't checked out
+// in CI, so the cross-repo import can never resolve in either place.
+// This is the only file in EventProWeb that used that package.
+export interface QRTokenPayload {
+  registrationId: string;
+  eventId: string;
+  participantId: string;
+  iat: number;
+  exp: number;
+}
 
 
 const getSecretKey = (): Uint8Array => {
@@ -52,8 +65,8 @@ export async function verifyToken(token: string):
       valid: true,
       payload: payload as unknown as QRTokenPayload
     };
-  } catch (error: any) {
-    if (error?.name === 'JWTExpired') {
+  } catch (error) {
+    if (error instanceof Error && error.name === 'JWTExpired') {
       return {
         valid: false,
         error: 'EXPIRED_TOKEN'

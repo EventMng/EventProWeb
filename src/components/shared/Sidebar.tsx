@@ -3,11 +3,37 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ROLE_LABELS } from '@/lib/roles';
+
+type SessionProfile = {
+  fullName: string;
+  roleLabel: string;
+};
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [sessionProfile, setSessionProfile] = useState<SessionProfile | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.user) return;
+        setSessionProfile({
+          fullName: data.user.fullName,
+          roleLabel: ROLE_LABELS[data.user.role as keyof typeof ROLE_LABELS] ?? data.user.role,
+        });
+      })
+      .catch(() => {
+        // Not authenticated (or request failed) — fall back to the mock profile below.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -38,6 +64,7 @@ export function Sidebar() {
         activeRole = 'ORGANIZER';
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberately deferred to an effect: reading localStorage during render would cause an SSR/hydration mismatch, which is exactly why initialRole above is used for the first render instead.
     setRole(activeRole);
   }, [pathname]);
 
@@ -56,9 +83,20 @@ export function Sidebar() {
       { name: 'Settings', href: '/admin', icon: 'settings' },
     ];
 
-  const profile = role === 'ORGANIZER'
+  const mockProfile = role === 'ORGANIZER'
     ? { name: 'Kamal Perera', roleLabel: 'Event Organizer', initial: 'K' }
     : { name: 'Sanduni Perera', roleLabel: 'Org Admin', initial: 'S' };
+
+  // Prefer the real logged-in user's name/role once /api/auth/me resolves;
+  // fall back to the pathname-based mock profile on pages without a session
+  // (or before the fetch above completes).
+  const profile = sessionProfile
+    ? {
+        name: sessionProfile.fullName,
+        roleLabel: sessionProfile.roleLabel,
+        initial: sessionProfile.fullName.trim().charAt(0).toUpperCase() || '?',
+      }
+    : mockProfile;
 
   return (
     <aside

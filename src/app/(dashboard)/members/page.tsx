@@ -55,8 +55,8 @@ export default function MembersPage() {
         if (!res.ok) throw new Error(`Failed to load members (${res.status})`);
         const data: ApiMember[] = await res.json();
         if (!cancelled) setMembers(data.map(toMemberItem));
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err.message ?? 'Failed to load members');
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load members');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -115,8 +115,8 @@ export default function MembersPage() {
         return [...prev, newItem];
       });
       setIssuedTempPass(data.isExistingUser ? 'EXISTING_LINKED' : 'ADDED');
-    } catch (err: any) {
-      setSubmitError(err.message ?? 'Failed to add member.');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to add member.');
     } finally {
       setIsSubmitting(false);
     }
@@ -129,19 +129,6 @@ export default function MembersPage() {
     setImageUrl('');
     setIssuedTempPass(null);
     setSubmitError(null);
-  };
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'ORG_ADMIN':
-        return { bg: '#FEF3C7', color: '#D97706', label: 'ORG ADMIN' };
-      case 'ORGANIZER':
-        return { bg: '#EFF6FF', color: '#2563EB', label: 'ORGANIZER' };
-      case 'FRONTMAN':
-        return { bg: '#F3E8FF', color: '#7C3AED', label: 'FRONTMAN (MOBILE)' };
-      default:
-        return { bg: '#F3F4F6', color: '#4B5563', label: role };
-    }
   };
 
   return (
@@ -220,6 +207,7 @@ export default function MembersPage() {
                   <tr key={member.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                     <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {member.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- imageUrl can be a data: URI (uploaded via FileReader below) or an external URL from other flows; next/image needs a known host allowlist or `unoptimized` we haven't set up yet.
                         <img src={member.imageUrl} alt={member.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
                         <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px' }}>
@@ -271,6 +259,7 @@ export default function MembersPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
                     {imageUrl ? (
                       <div style={{ position: 'relative' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- always a data: URI from the FileReader upload below; next/image doesn't optimize those anyway. */}
                         <img src={imageUrl} alt="Preview" style={{ width: '64px', height: '64px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2563EB' }} />
                         <button
                           type="button"
