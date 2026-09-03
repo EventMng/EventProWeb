@@ -17,6 +17,80 @@ const getMailFrom = (): string => {
   return '"EventPro" <no-reply@eventpro.local>';
 };
 
+export interface SendMemberInvitationInput {
+  to: string;
+  fullName: string;
+  organizationName: string;
+  role: string;
+  tempPassword: string;
+}
+
+// Emails a newly-added member (Organizer, Frontman, etc.) their login email
+// and temporary password, so an admin never has to relay credentials
+// manually or leave them visible in their own browser after creation.
+export async function sendMemberInvitation(input: SendMemberInvitationInput): Promise<boolean> {
+  const { to, fullName, organizationName, role, tempPassword } = input;
+
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
+    port: port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER || 'api',
+      pass: process.env.SMTP_PASS || '',
+    },
+  });
+
+  const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
+
+  const htmlContent = `
+    <div style="font-family: 'Inter', Arial, sans-serif; max-width: 500px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+      <div style="background-color: #032042; padding: 24px; text-align: center; color: #ffffff;">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 800;">EventPro</h2>
+        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">You've been added to a team</p>
+      </div>
+      <div style="padding: 24px;">
+        <h3 style="margin: 0 0 8px 0; color: #111827; font-size: 20px;">Hello, ${fullName}!</h3>
+        <p style="color: #4b5563; font-size: 14px; margin-bottom: 20px;">
+          You've been added as a <strong>${roleLabel}</strong> for <strong>${organizationName}</strong> on EventPro.
+          Use the credentials below to sign in — you'll be asked to set a new password on first login.
+        </p>
+        <div style="background-color: #f9fafb; padding: 16px; border-radius: 8px; border: 1px dashed #d1d5db;">
+          <p style="margin: 4px 0; font-size: 13px; color: #374151;"><strong>Email:</strong> ${to}</p>
+          <p style="margin: 4px 0; font-size: 13px; color: #374151;"><strong>Temporary password:</strong> <span style="font-family: monospace; font-size: 14px;">${tempPassword}</span></p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (!process.env.SMTP_USER) {
+    console.warn(`SMTP is not configured. Invitation email not sent to ${to}.`);
+    return true;
+  }
+
+  const headers: Record<string, string> = {};
+  if (process.env.POSTMARK_STREAM) {
+    headers['X-PM-Message-Stream'] = process.env.POSTMARK_STREAM;
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: getMailFrom(),
+      to,
+      subject: `You've been added to ${organizationName} on EventPro`,
+      html: htmlContent,
+      text: `Hello ${fullName},\n\nYou've been added as a ${roleLabel} for ${organizationName} on EventPro.\n\nEmail: ${to}\nTemporary password: ${tempPassword}\n\nBest regards,\nEventPro Team`,
+      headers,
+    });
+    console.log(`[SMTP] Invitation email sent successfully to ${to} (Message ID: ${info.messageId})`);
+    return true;
+  } catch (error) {
+    console.error(`[SMTP] Failed to send invitation email to ${to}:`, error);
+    return false;
+  }
+}
+
 export async function sendQRInvitation(input: SendQRInvitationInput): Promise<boolean> {
   const {to, participantName, eventName, eventDate, location, qrToken} = input;
 
