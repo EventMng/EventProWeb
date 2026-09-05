@@ -62,14 +62,14 @@ export default function LoginPage() {
       }
 
       if (user.role === 'ORG_ADMIN' || user.role === 'SYSTEM_ADMIN') {
-        router.push('/');
+        router.push('/dashboard');
       } else if (user.role === 'ORGANIZER') {
         router.push('/organizer');
       } else {
         // FRONTMAN (and any other future role) isn't part of the web
         // role-routing spec — fall back to the org admin dashboard rather
         // than leaving the user stuck on the login page.
-        router.push('/');
+        router.push('/dashboard');
       }
     } catch {
       setError('Unable to reach the server. Check your connection and try again.');

@@ -4,7 +4,9 @@ import { jwtVerify } from 'jose';
 // Pages reachable without a session. Everything else under this matcher
 // requires a valid eventpro_session cookie, or the visitor is sent to
 // /login — including a direct URL typed straight into the address bar.
-const PUBLIC_PATHS = ['/login', '/signup'];
+// '/' is public because it always redirects to /login itself regardless
+// of session state (see src/app/page.tsx) — no need to JWT-verify first.
+const PUBLIC_PATHS = ['/', '/login', '/signup'];
 
 async function hasValidSession(request: NextRequest): Promise<boolean> {
   const token = request.cookies.get('eventpro_session')?.value;
