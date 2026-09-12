@@ -55,21 +55,20 @@ export default function LoginPage() {
       const { user } = data as LoginResponse;
 
       // The session cookie is already set httpOnly by the API — no token
-      // handling needed here, just route based on the returned user.
-      if (user.isTemporaryPassword) {
-        router.push('/reset-password');
-        return;
-      }
-
+      // handling needed here, just route based on the returned user. A
+      // temporary password (e.g. one emailed to a newly-added Organizer)
+      // doesn't force a detour through a separate reset flow — they land
+      // straight on their dashboard and can change it anytime from
+      // Settings > Change Password.
       if (user.role === 'ORG_ADMIN' || user.role === 'SYSTEM_ADMIN') {
-        router.push('/');
+        router.push('/dashboard');
       } else if (user.role === 'ORGANIZER') {
         router.push('/organizer');
       } else {
         // FRONTMAN (and any other future role) isn't part of the web
         // role-routing spec — fall back to the org admin dashboard rather
         // than leaving the user stuck on the login page.
-        router.push('/');
+        router.push('/dashboard');
       }
     } catch {
       setError('Unable to reach the server. Check your connection and try again.');

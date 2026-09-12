@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
 import { hashPassword, generateTempPassword } from "@/lib/password";
+import { sendMemberInvitation } from "@/lib/mailer";
 
 const ASSIGNABLE_ROLES = ["ORGANIZER", "FRONTMAN"] as const;
 
@@ -141,8 +142,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const organization = await db.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { name: true },
+    });
+
+    const emailSent = await sendMemberInvitation({
+      to: member.email,
+      fullName: member.fullName,
+      organizationName: organization?.name ?? "your organization",
+      role: member.role,
+      tempPassword,
+    });
+
     // tempPassword is only ever returned here — it isn't stored in plaintext.
-    return NextResponse.json({ member, tempPassword }, { status: 201 });
+    // Also emailed directly to the new member above (emailSent reflects
+    // whether that actually went out, e.g. false if SMTP isn't configured).
+    return NextResponse.json({ member, tempPassword, emailSent }, { status: 201 });
   } catch (error) {
     console.error("Failed to add member:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

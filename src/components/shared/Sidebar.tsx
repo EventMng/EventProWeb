@@ -54,7 +54,7 @@ export function Sidebar() {
     if (pathname.startsWith('/organizer')) {
       activeRole = 'ORGANIZER';
       localStorage.setItem('eventpro_user_role', 'ORGANIZER');
-    } else if (pathname === '/' || pathname.startsWith('/admin') || pathname.startsWith('/members')) {
+    } else if (pathname === '/dashboard' || pathname.startsWith('/admin') || pathname.startsWith('/members')) {
       activeRole = 'ORG_ADMIN';
       localStorage.setItem('eventpro_user_role', 'ORG_ADMIN');
     } else {
@@ -77,7 +77,7 @@ export function Sidebar() {
       { name: 'Settings', href: '/admin', icon: 'settings' },
     ]
     : [
-      { name: 'Dashboard', href: '/', icon: 'dashboard' },
+      { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
       { name: 'Events', href: '/events', icon: 'calendar_today' },
       { name: 'Members', href: '/members', icon: 'badge' },
       { name: 'Settings', href: '/admin', icon: 'settings' },
@@ -140,8 +140,8 @@ export function Sidebar() {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {menuItems.map((item) => {
             const isActive =
-              item.href === '/' || item.href === '/organizer'
-                ? pathname === item.href || pathname === '/(dashboard)' || pathname === ''
+              item.href === '/dashboard' || item.href === '/organizer'
+                ? pathname === item.href
                 : pathname.startsWith(item.href);
 
             return (
