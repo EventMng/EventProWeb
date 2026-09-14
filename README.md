@@ -78,24 +78,59 @@ event-system-web/
 
 ```
 
-## Status
+## System Workflow & Role Architecture
 
-Scaffolded from `create-next-app` (App Router, TypeScript, Tailwind), with the folder layout above, a `prisma/schema.prisma` covering the ERD (`Organization`, `User`, `Event`, `EventFrontman`, `Participant`, `EventRegistration`), and both `/api/scanner/*` routes stubbed against it. Auth (NextAuth.js/JWT + RBAC), the dashboard UI, and `mailer.ts`'s actual email delivery are not yet implemented.
+1. **Organization Admin (`ORG_ADMIN`)**:
+   - Registers their personal account first and creates the Organization.
+   - Creates Events and manages team members.
+   - Invites/Adds Members to the Organization and issues **Temporary Passwords** for Mobile App Scanner access.
 
-Database is provisioned on Neon (hosted PostgreSQL) with the initial migration (`prisma/migrations/20260822021936_init`) applied — schema is live and in sync.
+2. **Members & Event Role Assignment**:
+   - Regular Members do **not** self-register; they are added directly by the Organization Admin.
+   - Members are assigned temporary event roles per event:
+     - `ORGANIZER`: Event coordinator and manager.
+     - `FRONTMAN`: Gate staff responsible for ticket scanning on the Mobile App.
 
-## Getting Started
+3. **Frontmen & Mobile App Access**:
+   - Frontmen log into the `EventProMobile` app using their Username (Email) and generated **Temporary Password**.
+   - Frontmen scan participant QR codes at event entry gates.
 
-1. Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `NEXTAUTH_SECRET`, `QR_TOKEN_SECRET`, and `RESEND_API_KEY`.
-2. Install and generate the Prisma client:
-   ```bash
-   npm install
-   npx prisma migrate dev --name init
-   ```
-3. Run the dev server:
-   ```bash
-   npm run dev
-   ```
+---
+
+## Data Audit & QR Attendance Tracking Specs
+
+### Participant Creation Data
+When an Organization Admin adds/registers a Participant:
+- `id`: Auto-generated UUID.
+- `organizationId`: Associated Organization ID.
+- `createdById`: User ID of the Organization Admin who created the participant.
+- `fullName`: Full Name of the participant.
+- `email`: Email address.
+- `imageUrl`: Optional avatar image URL.
+
+### Frontman QR Scan Attendance Data
+When a Frontman scans a participant's QR code via `/api/scanner/mark-attendance`:
+- `markedBy`: User ID of the Frontman who performed the scan.
+- `attendedAt`: Timestamp (`DateTime`) of the exact scan time.
+- `attended`: Attendance status set to `true`.
+
+---
+
+## Database Sync & Migrations
+
+```bash
+# 1. Update TypeScript Prisma Client definitions after schema changes
+npx prisma generate
+
+# 2. Sync schema changes directly to the live PostgreSQL (Neon) Database
+npx prisma db push
+
+# 3. Create a named migration file for version control (optional)
+npx prisma migrate dev --name <migration_name>
+
+# 4. Open Prisma Studio to inspect live database tables
+npx prisma studio
+```
 
 ## Commands
 
@@ -104,7 +139,6 @@ npm run dev         # start dev server
 npm run build        # production build
 npm run start        # run production build
 npm run lint
-npm run typecheck
 npx prisma studio    # inspect the database
-npx prisma migrate dev --name <name>   # create/apply a migration
+npx prisma db push   # sync schema to live database
 ```
