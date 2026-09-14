@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
-    const roleCheck = requireRole(user, ["ORG_ADMIN"]);
+    const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
     if (roleCheck) return roleCheck;
 
     const members = await db.user.findMany({
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
-    const roleCheck = requireRole(user, ["ORG_ADMIN"]);
+    const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
