@@ -59,7 +59,7 @@ export default function DashboardClient({ fullName, organizationName, role }: Da
   const [organizerEmail, setOrganizerEmail] = useState('');
   const [addingOrganizer, setAddingOrganizer] = useState(false);
   const [addOrganizerError, setAddOrganizerError] = useState<string | null>(null);
-  const [addedOrganizer, setAddedOrganizer] = useState<{ fullName: string; email: string; tempPassword?: string } | null>(null);
+  const [addedOrganizer, setAddedOrganizer] = useState<{ fullName: string; email: string; emailSent: boolean } | null>(null);
 
   const closeAddOrganizerModal = () => {
     setShowAddOrganizerModal(false);
@@ -95,7 +95,7 @@ export default function DashboardClient({ fullName, organizationName, role }: Da
       setAddedOrganizer({
         fullName: data.member.fullName,
         email: data.member.email,
-        tempPassword: data.tempPassword,
+        emailSent: Boolean(data.emailSent),
       });
     } catch {
       setAddOrganizerError('Unable to reach the server. Check your connection and try again.');
@@ -656,13 +656,17 @@ export default function DashboardClient({ fullName, organizationName, role }: Da
                   {addedOrganizer.fullName} ({addedOrganizer.email}) has been added as an Organizer.
                 </p>
 
-                {addedOrganizer.tempPassword && (
-                  <div style={{ backgroundColor: '#EFF6FF', borderRadius: '8px', padding: '14px', marginBottom: '18px' }}>
-                    <p style={{ fontSize: '12px', fontWeight: '700', color: '#374151', margin: '0 0 6px 0' }}>
-                      Temporary password (share this with them — it won&apos;t be shown again):
+                {addedOrganizer.emailSent ? (
+                  <div style={{ backgroundColor: '#ECFDF5', borderRadius: '8px', padding: '14px', marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#059669' }}>mail</span>
+                    <p style={{ fontSize: '13px', fontWeight: '700', color: '#065F46', margin: 0 }}>
+                      An invite with their login email and a temporary password has been sent to {addedOrganizer.email}.
                     </p>
-                    <p style={{ fontSize: '15px', fontWeight: '800', color: '#2563EB', margin: 0, fontFamily: 'monospace' }}>
-                      {addedOrganizer.tempPassword}
+                  </div>
+                ) : (
+                  <div style={{ backgroundColor: '#FEF2F2', borderRadius: '8px', padding: '14px', marginBottom: '18px' }}>
+                    <p style={{ fontSize: '13px', fontWeight: '700', color: '#B91C1C', margin: 0 }}>
+                      The account was created, but the invite email couldn&apos;t be sent. Check the server&apos;s email configuration, then share their login details with them directly.
                     </p>
                   </div>
                 )}

@@ -70,7 +70,7 @@ export default function SignupPage() {
 
       // The session cookie is already set httpOnly by the API — no token
       // handling needed here, ORG_ADMIN always lands on the admin dashboard.
-      router.push('/');
+      router.push('/dashboard');
     } catch {
       setError('Unable to reach the server. Check your connection and try again.');
     } finally {
