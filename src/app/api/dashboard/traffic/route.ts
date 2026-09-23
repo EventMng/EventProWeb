@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
-    const roleCheck = requireRole(user, ["ORG_ADMIN"]);
+    const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER", "FRONTMAN", "SYSTEM_ADMIN"]);
     if (roleCheck) return roleCheck;
 
     const { searchParams } = new URL(request.url);
