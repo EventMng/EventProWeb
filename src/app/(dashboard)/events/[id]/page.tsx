@@ -462,13 +462,13 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span>
-              Assign Member to Event
+              Assign Frontman
             </button>
           </div>
 
           {eventStaff.length === 0 ? (
             <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px dashed #D1D5DB', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
-              No staff members assigned to scan tickets for this event yet. Click <strong>&quot;Assign Member to Event&quot;</strong> to assign event roles.
+              No staff members assigned to scan tickets for this event yet. Click <strong>&quot;Assign Frontman&quot;</strong> to assign event roles.
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
@@ -714,7 +714,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               {!issuedFrontmanCredentials ? (
                 <form onSubmit={handleAssignStaff}>
                   <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
-                    Assign Event Staff
+                    Assign Frontman
                   </h3>
                   <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px 0' }}>
                     Select an organization member to grant <strong>Frontman (Mobile Scanner)</strong> role for this event.
@@ -754,7 +754,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                       Cancel
                     </button>
                     <button type="submit" disabled={isAssigningStaff || unassignedMembers.length === 0} style={{ padding: '10px 18px', backgroundColor: '#7C3AED', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', opacity: (isAssigningStaff || unassignedMembers.length === 0) ? 0.6 : 1 }}>
-                      {isAssigningStaff ? 'Assigning...' : 'Assign Role'}
+                      {isAssigningStaff ? 'Assigning...' : 'Assign Frontman'}
                     </button>
                   </div>
                 </form>
