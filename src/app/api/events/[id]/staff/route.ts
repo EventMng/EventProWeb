@@ -102,28 +102,27 @@ export async function POST(
         include: { organizations: { select: { id: true } } },
       });
 
-      const tempPassword = generateTempPassword();
-      const passwordHash = await hashPassword(tempPassword);
+      let tempPassword: string | undefined;
 
       if (targetUser) {
-        // Link to organization if not already linked
+        // Link to organization if not already linked, but preserve existing role and password
         const isLinked =
           targetUser.organizationId === user.organizationId ||
           targetUser.organizations.some((o) => o.id === user.organizationId);
 
-        targetUser = await db.user.update({
-          where: { id: targetUser.id },
-          data: {
-            passwordHash,
-            isTemporaryPassword: true,
-            role: "FRONTMAN",
-            organizations: !isLinked
-              ? { connect: { id: user.organizationId } }
-              : undefined,
-          },
-          include: { organizations: { select: { id: true } } },
-        });
+        if (!isLinked) {
+          targetUser = await db.user.update({
+            where: { id: targetUser.id },
+            data: {
+              organizations: { connect: { id: user.organizationId } },
+            },
+            include: { organizations: { select: { id: true } } },
+          });
+        }
       } else {
+        tempPassword = generateTempPassword();
+        const passwordHash = await hashPassword(tempPassword);
+
         targetUser = await db.user.create({
           data: {
             organizationId: user.organizationId,
@@ -228,18 +227,6 @@ export async function POST(
       const assignedList = [];
 
       for (const targetUser of targetUsers) {
-        const tempPassword = generateTempPassword();
-        const passwordHash = await hashPassword(tempPassword);
-
-        await db.user.update({
-          where: { id: targetUser.id },
-          data: {
-            passwordHash,
-            isTemporaryPassword: true,
-            role: "FRONTMAN",
-          },
-        });
-
         await db.eventFrontman.upsert({
           where: {
             eventId_userId: {
@@ -258,7 +245,6 @@ export async function POST(
           id: targetUser.id,
           fullName: targetUser.fullName,
           email: targetUser.email,
-          tempPassword,
           role: "FRONTMAN",
         });
       }
@@ -289,19 +275,6 @@ export async function POST(
     if (!targetUser) {
       return NextResponse.json({ error: "User not found in organization" }, { status: 404 });
     }
-
-    // Generate temporary password for Frontman app access for this event
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
-
-    await db.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash,
-        isTemporaryPassword: true,
-        role: "FRONTMAN",
-      },
-    });
 
     // Assign to event
     const assignment = await db.eventFrontman.upsert({
@@ -340,7 +313,6 @@ export async function POST(
         assignedAt: assignment.assignedAt,
         role: "FRONTMAN",
       },
-      tempPassword,
     });
   } catch (error) {
     console.error("Failed to assign staff to event:", error);

@@ -28,6 +28,7 @@ async function main() {
   await db.user.upsert({
     where: { id: DEV_USER_ID },
     update: {
+      role: 'ORG_ADMIN',
       organizations: {
         connect: { id: DEV_ORG_ID },
       },
@@ -70,6 +71,7 @@ async function main() {
   await db.user.upsert({
     where: { id: DEV_ORGANIZER_USER_ID },
     update: {
+      role: 'ORGANIZER',
       organizations: {
         connect: { id: DEV_ORG_ID },
       },
