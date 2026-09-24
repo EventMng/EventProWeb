@@ -71,9 +71,9 @@ export function Sidebar() {
   const menuItems = role === 'ORGANIZER'
     ? [
       { name: 'Dashboard', href: '/organizer', icon: 'dashboard' },
-      { name: 'Events', href: '/events', icon: 'calendar_today' },
+      { name: 'Events', href: '/organizer/events', icon: 'calendar_today' },
       { name: 'Members', href: '/organizer/members', icon: 'badge' },
-      { name: 'Settings', href: '/settings', icon: 'settings' },
+      { name: 'Settings', href: '/organizer/settings', icon: 'settings' },
     ]
     : [
       { name: 'Dashboard', href: '/admin', icon: 'dashboard' },
