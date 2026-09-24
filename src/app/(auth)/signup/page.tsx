@@ -13,7 +13,7 @@ type RegisterResponse = {
     id: string;
     fullName: string;
     email: string;
-    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN';
+    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN' | 'MEMBER';
     organizationId: string;
     isTemporaryPassword: boolean;
     imageUrl: string | null;
