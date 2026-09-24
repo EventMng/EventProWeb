@@ -55,6 +55,31 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'CHECKED_IN' | 'REGISTERED' | 'NO_SHOW'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // "Send Passes", "Import CSV", "Add participant", and "Assign Frontman"
+  // are hidden for ORG_ADMIN — only Organizers (and System Admins) manage events.
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('eventpro_user_role') : null;
+    if (saved) setViewerRole(saved);
+
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.user?.role) {
+          setViewerRole(data.user.role);
+          localStorage.setItem('eventpro_user_role', data.user.role);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const canManageEvent = Boolean(viewerRole && viewerRole !== 'ORG_ADMIN');
   
   // Event Staff states
   const [eventStaff, setEventStaff] = useState<EventStaffItem[]>([]);
@@ -356,74 +381,76 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              onClick={handleSendSelectedPasses}
-              disabled={isSendingPasses}
-              style={{
-                backgroundColor: '#059669',
-                color: '#FFFFFF',
-                border: 'none',
-                padding: '12px 20px',
-                borderRadius: '12px',
-                fontWeight: '700',
-                fontSize: '14px',
-                cursor: isSendingPasses ? 'default' : 'pointer',
-                fontFamily: "'Urbanist', sans-serif",
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
-                opacity: isSendingPasses ? 0.7 : 1,
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>
-              {isSendingPasses ? 'Sending Passes...' : selectedIds.length > 0 ? `Send Passes (${selectedIds.length})` : 'Send Passes (Invitations)'}
-            </button>
+          {canManageEvent && (
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={handleSendSelectedPasses}
+                disabled={isSendingPasses}
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '12px 20px',
+                  borderRadius: '12px',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: isSendingPasses ? 'default' : 'pointer',
+                  fontFamily: "'Urbanist', sans-serif",
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)',
+                  opacity: isSendingPasses ? 0.7 : 1,
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>
+                {isSendingPasses ? 'Sending Passes...' : selectedIds.length > 0 ? `Send Passes (${selectedIds.length})` : 'Send Passes (Invitations)'}
+              </button>
 
-            <button
-              onClick={() => setShowCsvModal(true)}
-              style={{
-                border: '1.5px solid #E5E7EB',
-                backgroundColor: '#FFFFFF',
-                color: '#374151',
-                padding: '12px 20px',
-                borderRadius: '12px',
-                fontWeight: '700',
-                fontSize: '14px',
-                cursor: 'pointer',
-                fontFamily: "'Urbanist', sans-serif",
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload_file</span>
-              Import CSV
-            </button>
+              <button
+                onClick={() => setShowCsvModal(true)}
+                style={{
+                  border: '1.5px solid #E5E7EB',
+                  backgroundColor: '#FFFFFF',
+                  color: '#374151',
+                  padding: '12px 20px',
+                  borderRadius: '12px',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  fontFamily: "'Urbanist', sans-serif",
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload_file</span>
+                Import CSV
+              </button>
 
-            <button
-              onClick={() => setShowAddModal(true)}
-              style={{
-                backgroundColor: '#2563EB',
-                color: '#FFFFFF',
-                border: 'none',
-                padding: '12px 24px',
-                borderRadius: '12px',
-                fontSize: '14px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontFamily: "'Urbanist', sans-serif",
-                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-              Add participant
-            </button>
-          </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  backgroundColor: '#2563EB',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontFamily: "'Urbanist', sans-serif",
+                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
+                Add participant
+              </button>
+            </div>
+          )}
         </div>
 
         {sendSuccessMsg && (
@@ -444,31 +471,37 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 Allocate organization members to scan ticket QR codes for this specific event.
               </p>
             </div>
-            <button
-              onClick={() => setShowAssignStaffModal(true)}
-              style={{
-                backgroundColor: '#F3E8FF',
-                color: '#7C3AED',
-                border: '1px solid #E9D5FF',
-                padding: '8px 16px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontFamily: "'Urbanist', sans-serif",
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span>
-              Assign Frontman
-            </button>
+            {canManageEvent && (
+              <button
+                onClick={() => setShowAssignStaffModal(true)}
+                style={{
+                  backgroundColor: '#F3E8FF',
+                  color: '#7C3AED',
+                  border: '1px solid #E9D5FF',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontFamily: "'Urbanist', sans-serif",
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span>
+                Assign Frontman
+              </button>
+            )}
           </div>
 
           {eventStaff.length === 0 ? (
             <div style={{ padding: '16px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px dashed #D1D5DB', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
-              No staff members assigned to scan tickets for this event yet. Click <strong>&quot;Assign Frontman&quot;</strong> to assign event roles.
+              {canManageEvent ? (
+                <>No staff members assigned to scan tickets for this event yet. Click <strong>&quot;Assign Frontman&quot;</strong> to assign event roles.</>
+              ) : (
+                <>No staff members assigned to scan tickets for this event yet.</>
+              )}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
@@ -501,22 +534,24 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleRemoveStaff(staff.id)}
-                    title="Remove from Event"
-                    style={{
-                      border: 'none',
-                      backgroundColor: 'transparent',
-                      color: '#EF4444',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>remove_circle_outline</span>
-                  </button>
+                  {canManageEvent && (
+                    <button
+                      onClick={() => handleRemoveStaff(staff.id)}
+                      title="Remove from Event"
+                      style={{
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        color: '#EF4444',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>remove_circle_outline</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -628,14 +663,16 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
-                <th style={{ padding: '12px 16px', width: '40px' }}>
-                  <input
-                    type="checkbox"
-                    onChange={handleSelectAll}
-                    checked={selectedIds.length === filtered.length && filtered.length > 0}
-                    style={{ cursor: 'pointer', borderRadius: '4px' }}
-                  />
-                </th>
+                {canManageEvent && (
+                  <th style={{ padding: '12px 16px', width: '40px' }}>
+                    <input
+                      type="checkbox"
+                      onChange={handleSelectAll}
+                      checked={selectedIds.length === filtered.length && filtered.length > 0}
+                      style={{ cursor: 'pointer', borderRadius: '4px' }}
+                    />
+                  </th>
+                )}
                 <th style={{ padding: '12px 16px' }}>PARTICIPANT</th>
                 <th style={{ padding: '12px 16px' }}>TICKET</th>
                 <th style={{ padding: '12px 16px' }}>STATUS</th>
@@ -643,11 +680,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
+                <tr><td colSpan={canManageEvent ? 4 : 3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>Loading participants...</td></tr>
               ) : loadError ? (
-                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#DC2626' }}>Failed to load participants. Please try again.</td></tr>
+                <tr><td colSpan={canManageEvent ? 4 : 3} style={{ padding: '24px', textAlign: 'center', color: '#DC2626' }}>Failed to load participants. Please try again.</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>
+                <tr><td colSpan={canManageEvent ? 4 : 3} style={{ padding: '24px', textAlign: 'center', color: '#6B7280' }}>
                   {registrations.length === 0 ? 'No participants registered yet.' : `No participants found matching "${search}".`}
                 </td></tr>
               ) : (
@@ -657,14 +694,16 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                   const isSelected = selectedIds.includes(item.id);
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid #F3F4F6', backgroundColor: isSelected ? '#F9FAFB' : 'transparent' }}>
-                      <td style={{ padding: '18px 16px' }}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleSelectOne(item.id)}
-                          style={{ cursor: 'pointer', borderRadius: '4px' }}
-                        />
-                      </td>
+                      {canManageEvent && (
+                        <td style={{ padding: '18px 16px' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleSelectOne(item.id)}
+                            style={{ cursor: 'pointer', borderRadius: '4px' }}
+                          />
+                        </td>
+                      )}
                       <td style={{ padding: '18px 16px' }}>
                         <div style={{ fontWeight: '700', color: '#111827' }}>{item.participant.fullName}</div>
                         <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{item.participant.email}</div>
@@ -708,7 +747,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* Assign Staff Modal */}
-        {showAssignStaffModal && (
+        {canManageEvent && showAssignStaffModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
             <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '440px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
               {!issuedFrontmanCredentials ? (
@@ -802,7 +841,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         )}
 
         {/* Add Modal */}
-        {showAddModal && (
+        {canManageEvent && showAddModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
             <form onSubmit={handleAddParticipant} style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Add New Participant</h3>
@@ -842,7 +881,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         )}
 
         {/* CSV Import Modal */}
-        {showCsvModal && (
+        {canManageEvent && showCsvModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
             <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '520px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Import Participants via CSV</h3>
