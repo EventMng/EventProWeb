@@ -57,7 +57,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // "Send Passes", "Import CSV", "Add participant", and "Assign Frontman"
-  // are hidden for ORG_ADMIN — only Organizers (and System Admins) manage events.
+  // are available for Organizers, Org Admins, and System Admins.
   const [viewerRole, setViewerRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     };
   }, []);
 
-  const canManageEvent = Boolean(viewerRole && viewerRole !== 'ORG_ADMIN');
+  const canManageEvent = !viewerRole || (viewerRole !== 'FRONTMAN' && viewerRole !== 'MEMBER');
   
   // Event Staff states
   const [eventStaff, setEventStaff] = useState<EventStaffItem[]>([]);

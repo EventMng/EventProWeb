@@ -61,14 +61,14 @@ export default function LoginPage() {
       // straight on their dashboard and can change it anytime from
       // Settings > Change Password.
       if (user.role === 'ORG_ADMIN' || user.role === 'SYSTEM_ADMIN') {
-        router.push('/dashboard');
+        router.push('/admin');
       } else if (user.role === 'ORGANIZER') {
         router.push('/organizer');
       } else {
         // FRONTMAN (and any other future role) isn't part of the web
         // role-routing spec — fall back to the org admin dashboard rather
         // than leaving the user stuck on the login page.
-        router.push('/dashboard');
+        router.push('/admin');
       }
     } catch {
       setError('Unable to reach the server. Check your connection and try again.');

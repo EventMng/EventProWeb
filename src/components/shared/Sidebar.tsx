@@ -54,7 +54,7 @@ export function Sidebar() {
     if (pathname.startsWith('/organizer')) {
       activeRole = 'ORGANIZER';
       localStorage.setItem('eventpro_user_role', 'ORGANIZER');
-    } else if (pathname === '/dashboard' || pathname.startsWith('/admin') || pathname.startsWith('/members')) {
+    } else if (pathname === '/admin' || pathname === '/dashboard' || pathname.startsWith('/members') || pathname.startsWith('/settings')) {
       activeRole = 'ORG_ADMIN';
       localStorage.setItem('eventpro_user_role', 'ORG_ADMIN');
     } else {
@@ -73,13 +73,13 @@ export function Sidebar() {
       { name: 'Dashboard', href: '/organizer', icon: 'dashboard' },
       { name: 'Events', href: '/events', icon: 'calendar_today' },
       { name: 'Members', href: '/organizer/members', icon: 'badge' },
-      { name: 'Settings', href: '/admin', icon: 'settings' },
+      { name: 'Settings', href: '/settings', icon: 'settings' },
     ]
     : [
-      { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Dashboard', href: '/admin', icon: 'dashboard' },
       { name: 'Events', href: '/events', icon: 'calendar_today' },
       { name: 'Members', href: '/members', icon: 'badge' },
-      { name: 'Settings', href: '/admin', icon: 'settings' },
+      { name: 'Settings', href: '/settings', icon: 'settings' },
     ];
 
   const mockProfile = role === 'ORGANIZER'
@@ -139,7 +139,7 @@ export function Sidebar() {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {menuItems.map((item) => {
             const isActive =
-              item.href === '/dashboard' || item.href === '/organizer'
+              item.href === '/admin' || item.href === '/dashboard' || item.href === '/organizer'
                 ? pathname === item.href
                 : pathname.startsWith(item.href);
 
