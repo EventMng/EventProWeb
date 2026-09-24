@@ -672,7 +672,7 @@ export default function OrganizerDashboardPage() {
                         }}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>person_add</span>
-                        Add member
+                        Add participant
                       </button>
                     </td>
                   </tr>
@@ -696,19 +696,19 @@ export default function OrganizerDashboardPage() {
                 <form onSubmit={handleAssignStaff}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ backgroundColor: '#F3E8FF', color: '#7C3AED', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '800' }}>
-                      {assignMode === 'NEWCOMER' ? 'PARTICIPANT REGISTRATION' : 'EVENT STAFF ASSIGNMENT'}
+                      {assignMode === 'NEWCOMER' ? 'PARTICIPANT REGISTRATION' : 'ADD PARTICIPANT'}
                     </span>
                     <span style={{ fontSize: '12px', color: '#6B7280', fontWeight: '600' }}>
                       Event: <strong style={{ color: '#111827' }}>{assignTargetEvent.name}</strong>
                     </span>
                   </div>
                   <h3 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
-                    {assignMode === 'NEWCOMER' ? 'Add Participant to Event' : 'Add Members to Event'}
+                    {assignMode === 'NEWCOMER' ? 'Register New Participant' : 'Add Participant to Event'}
                   </h3>
                   <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 18px 0' }}>
                     {assignMode === 'NEWCOMER'
                       ? <>Register a new attendee for <strong>{assignTargetEvent.name}</strong> and issue a QR entry ticket.</>
-                      : <>Select members from your organization to assign to <strong>{assignTargetEvent.name}</strong> for event duties and mobile scanning.</>}
+                      : <>Assign participants or members to <strong>{assignTargetEvent.name}</strong> with entry tickets and event roles.</>}
                   </p>
 
                   {/* Mode Selector Tabs (3 Ways to Add) */}
