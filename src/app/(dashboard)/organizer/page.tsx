@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import QRCode from 'qrcode';
 import { Sidebar } from '@/components/shared/Sidebar';
 
 interface EventListItem {
@@ -34,7 +35,7 @@ export default function OrganizerDashboardPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Assign Member to Event states
+  // Assign Member / Newcomer Participant states
   const [assignTargetEvent, setAssignTargetEvent] = useState<EventListItem | null>(null);
   const [showAssignStaffModal, setShowAssignStaffModal] = useState(false);
   const [assignMode, setAssignMode] = useState<'SELECT' | 'ALL' | 'NEWCOMER'>('SELECT');
@@ -45,6 +46,7 @@ export default function OrganizerDashboardPage() {
   const [memberSearchFilter, setMemberSearchFilter] = useState('');
   const [newcomerFullName, setNewcomerFullName] = useState('');
   const [newcomerEmail, setNewcomerEmail] = useState('');
+  const [newcomerTicketType, setNewcomerTicketType] = useState('General');
   const [isAssigningStaff, setIsAssigningStaff] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
   const [assignSuccessMsg, setAssignSuccessMsg] = useState<string | null>(null);
@@ -59,6 +61,13 @@ export default function OrganizerDashboardPage() {
     email: string;
     tempPassword: string;
   }[] | null>(null);
+  const [issuedParticipantPass, setIssuedParticipantPass] = useState<{
+    name: string;
+    email: string;
+    ticketType: string;
+    qrToken: string;
+    qrDataUrl?: string;
+  } | null>(null);
 
   // Open modal and fetch members + already assigned staff
   const handleOpenAssignModal = async (event: EventListItem) => {
@@ -67,10 +76,12 @@ export default function OrganizerDashboardPage() {
     setMemberSearchFilter('');
     setNewcomerFullName('');
     setNewcomerEmail('');
+    setNewcomerTicketType('General');
     setAssignMode('SELECT');
     setAssignError(null);
     setIssuedFrontmanCredentials(null);
     setIssuedBulkCredentials(null);
+    setIssuedParticipantPass(null);
     setShowAssignStaffModal(true);
     setLoadingMembers(true);
 
@@ -111,7 +122,7 @@ export default function OrganizerDashboardPage() {
     );
   };
 
-  // Submit Member Assignment
+  // Submit Member Assignment or Participant Registration
   const handleAssignStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignTargetEvent) return;
@@ -123,9 +134,62 @@ export default function OrganizerDashboardPage() {
 
     if (assignMode === 'NEWCOMER') {
       if (!newcomerFullName.trim() || !newcomerEmail.trim()) {
-        setAssignError('Please provide both full name and email for the newcomer.');
+        setAssignError('Please provide both full name and email for the newcomer participant.');
         return;
       }
+
+      setIsAssigningStaff(true);
+      setAssignError(null);
+
+      try {
+        const res = await fetch('/api/participants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventId: assignTargetEvent.id,
+            fullName: newcomerFullName.trim(),
+            email: newcomerEmail.trim(),
+            ticketType: newcomerTicketType || 'General',
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.error === 'ALREADY_REGISTERED') {
+            setAssignError('This participant is already registered for this event.');
+          } else {
+            setAssignError(data.error ?? 'Failed to register participant.');
+          }
+          return;
+        }
+
+        let qrDataUrl = '';
+        try {
+          qrDataUrl = await QRCode.toDataURL(data.qrToken, { width: 220, margin: 1 });
+        } catch (err) {
+          console.error('Failed to generate QR Code data URL:', err);
+        }
+
+        setIssuedParticipantPass({
+          name: newcomerFullName.trim(),
+          email: newcomerEmail.trim(),
+          ticketType: newcomerTicketType || 'General',
+          qrToken: data.qrToken,
+          qrDataUrl,
+        });
+
+        setNewcomerFullName('');
+        setNewcomerEmail('');
+        setNewcomerTicketType('General');
+
+        // Refresh events list to show updated headcount
+        await fetchEvents();
+      } catch (err) {
+        setAssignError(err instanceof Error ? err.message : 'Failed to register participant.');
+      } finally {
+        setIsAssigningStaff(false);
+      }
+      return;
     }
 
     setIsAssigningStaff(true);
@@ -135,13 +199,6 @@ export default function OrganizerDashboardPage() {
       let payload: Record<string, unknown>;
       if (assignMode === 'ALL') {
         payload = { all: true };
-      } else if (assignMode === 'NEWCOMER') {
-        payload = {
-          newcomer: {
-            fullName: newcomerFullName.trim(),
-            email: newcomerEmail.trim(),
-          },
-        };
       } else {
         payload = { userIds: selectedStaffIds };
       }
@@ -154,21 +211,7 @@ export default function OrganizerDashboardPage() {
       const data = await res.json();
 
       if (res.ok) {
-        if (assignMode === 'NEWCOMER') {
-          if (data.tempPassword) {
-            setIssuedFrontmanCredentials({
-              name: data.staff?.fullName || newcomerFullName.trim(),
-              email: data.staff?.email || newcomerEmail.trim(),
-              tempPassword: data.tempPassword,
-            });
-          } else {
-            setAssignSuccessMsg(`Successfully registered and assigned ${newcomerFullName.trim()} to ${assignTargetEvent.name}`);
-            setTimeout(() => setAssignSuccessMsg(null), 5000);
-            setShowAssignStaffModal(false);
-          }
-          setNewcomerFullName('');
-          setNewcomerEmail('');
-        } else if (data.staffList && data.staffList.length > 1) {
+        if (data.staffList && data.staffList.length > 1) {
           setIssuedBulkCredentials(data.staffList);
         } else if (data.staffList && data.staffList.length === 1) {
           const single = data.staffList[0];
@@ -634,24 +677,27 @@ export default function OrganizerDashboardPage() {
         </div>
 
         {/* Assign Member to Event Modal */}
+        {/* Assign Member / Register Participant Modal */}
         {showAssignStaffModal && assignTargetEvent && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
             <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-              {!issuedFrontmanCredentials && !issuedBulkCredentials ? (
+              {!issuedFrontmanCredentials && !issuedBulkCredentials && !issuedParticipantPass ? (
                 <form onSubmit={handleAssignStaff}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <span style={{ backgroundColor: '#F3E8FF', color: '#7C3AED', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '800' }}>
-                      EVENT STAFF ASSIGNMENT
+                      {assignMode === 'NEWCOMER' ? 'PARTICIPANT REGISTRATION' : 'EVENT STAFF ASSIGNMENT'}
                     </span>
                   </div>
                   <h3 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
-                    Add Members to Event
+                    {assignMode === 'NEWCOMER' ? 'Add Participant to Event' : 'Add Members to Event'}
                   </h3>
                   <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 18px 0' }}>
-                    Assign staff to <strong>{assignTargetEvent.name}</strong> as Event Frontmen for ticket scanning.
+                    {assignMode === 'NEWCOMER'
+                      ? <>Register a new attendee for <strong>{assignTargetEvent.name}</strong> and issue a QR entry ticket.</>
+                      : <>Assign staff to <strong>{assignTargetEvent.name}</strong> as Event Frontmen for ticket scanning.</>}
                   </p>
 
-                  {/* Mode Selector Tabs (3 Ways to Add Members) */}
+                  {/* Mode Selector Tabs (3 Ways to Add) */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', backgroundColor: '#F3F4F6', padding: '4px', borderRadius: '10px', marginBottom: '20px' }}>
                     <button
                       type="button"
@@ -741,11 +787,11 @@ export default function OrganizerDashboardPage() {
                         <div style={{ marginBottom: '20px' }}>
                           <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px' }}>
                             <div style={{ fontSize: '13px', fontWeight: '800', color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#16A34A' }}>person_add</span>
-                              Register Newcomer to Organization
+                              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#16A34A' }}>how_to_reg</span>
+                              Register Participant to Event
                             </div>
                             <p style={{ fontSize: '12px', color: '#15803D', margin: 0 }}>
-                              This person will be registered as a new member in your organization and assigned to this event as a Frontman scanner with auto-generated mobile login credentials.
+                              This person will be registered as an attendee for this event and issued an official cryptographic QR Code entry ticket.
                             </p>
                           </div>
 
@@ -783,6 +829,7 @@ export default function OrganizerDashboardPage() {
                             style={{
                               width: '100%',
                               padding: '10px 14px',
+                              marginBottom: '14px',
                               border: '1px solid #D1D5DB',
                               borderRadius: '8px',
                               fontSize: '14px',
@@ -791,6 +838,31 @@ export default function OrganizerDashboardPage() {
                               backgroundColor: '#FFFFFF',
                             }}
                           />
+
+                          <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                            Ticket Type
+                          </label>
+                          <select
+                            value={newcomerTicketType}
+                            onChange={(e) => setNewcomerTicketType(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '10px 14px',
+                              border: '1px solid #D1D5DB',
+                              borderRadius: '8px',
+                              fontSize: '14px',
+                              outline: 'none',
+                              fontFamily: "'Urbanist', sans-serif",
+                              backgroundColor: '#FFFFFF',
+                            }}
+                          >
+                            <option value="General">General Admission</option>
+                            <option value="VIP">VIP Pass</option>
+                            <option value="Early Bird">Early Bird</option>
+                            <option value="Student">Student</option>
+                            <option value="Speaker">Speaker</option>
+                            <option value="Press">Press / Media</option>
+                          </select>
                         </div>
                       );
                     }
@@ -798,7 +870,7 @@ export default function OrganizerDashboardPage() {
                     if (availableMembers.length === 0) {
                       return (
                         <div style={{ padding: '16px', backgroundColor: '#FEF3C7', color: '#D97706', borderRadius: '10px', fontSize: '13px', marginBottom: '20px', border: '1px solid #FDE68A' }}>
-                          <strong>All organization members are already assigned</strong> to this event. You can still use the <strong>Newcomers</strong> tab to register and assign a new member!
+                          <strong>All organization members are already assigned</strong> to this event. You can still use the <strong>Newcomers</strong> tab to register a new participant!
                         </div>
                       );
                     }
@@ -1034,6 +1106,7 @@ export default function OrganizerDashboardPage() {
                         setSelectedStaffIds([]);
                         setNewcomerFullName('');
                         setNewcomerEmail('');
+                        setNewcomerTicketType('General');
                         setAssignError(null);
                       }}
                       style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF', fontFamily: "'Urbanist', sans-serif" }}
@@ -1072,12 +1145,12 @@ export default function OrganizerDashboardPage() {
                       }}
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-                        {assignMode === 'ALL' ? 'group_add' : assignMode === 'NEWCOMER' ? 'person_add' : 'how_to_reg'}
+                        {assignMode === 'ALL' ? 'group_add' : assignMode === 'NEWCOMER' ? 'how_to_reg' : 'person_add'}
                       </span>
                       {isAssigningStaff
-                        ? 'Assigning...'
+                        ? (assignMode === 'NEWCOMER' ? 'Registering...' : 'Assigning...')
                         : assignMode === 'NEWCOMER'
-                        ? 'Register & Assign Newcomer'
+                        ? 'Register Participant & Issue Ticket'
                         : assignMode === 'ALL'
                         ? `Add All (${orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length}) Members`
                         : selectedStaffIds.length > 0
@@ -1086,6 +1159,121 @@ export default function OrganizerDashboardPage() {
                     </button>
                   </div>
                 </form>
+              ) : issuedParticipantPass ? (
+                /* Participant Registered QR Ticket Modal */
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#059669' }}>confirmation_number</span>
+                    <h3 style={{ margin: '8px 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
+                      Participant Registered!
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
+                      Official entry ticket with QR Code has been generated.
+                    </p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: '700' }}>EVENT</div>
+                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#111827' }}>{assignTargetEvent.name}</div>
+                      </div>
+                      <span
+                        style={{
+                          backgroundColor: '#ECFDF5',
+                          color: '#059669',
+                          border: '1px solid #A7F3D0',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: '800',
+                        }}
+                      >
+                        {issuedParticipantPass.ticketType} Pass
+                      </span>
+                    </div>
+
+                    <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '8px', marginTop: '8px' }}>
+                      <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: '700' }}>PARTICIPANT</div>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: '#111827' }}>{issuedParticipantPass.name}</div>
+                      <div style={{ fontSize: '12px', color: '#6B7280' }}>{issuedParticipantPass.email}</div>
+                    </div>
+
+                    {issuedParticipantPass.qrDataUrl ? (
+                      <div style={{ textAlign: 'center', marginTop: '14px', padding: '14px', backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px dashed #D1D5DB' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={issuedParticipantPass.qrDataUrl}
+                          alt="Participant QR Code"
+                          style={{ width: '180px', height: '180px', margin: '0 auto', display: 'block' }}
+                        />
+                        <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '6px', fontWeight: '600' }}>
+                          Scan at gate for instant check-in
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#F3F4F6', borderRadius: '8px', fontSize: '12px', color: '#4B5563', wordBreak: 'break-all' }}>
+                        <strong>QR Token:</strong> {issuedParticipantPass.qrToken}
+                      </div>
+                    )}
+                  </div>
+
+                  <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 20px 0', textAlign: 'center' }}>
+                    An invitation with the QR ticket has been dispatched to <strong>{issuedParticipantPass.email}</strong>.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(issuedParticipantPass.qrToken);
+                        alert('QR Token copied to clipboard!');
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        backgroundColor: '#FFFFFF',
+                        border: '1.5px solid #D1D5DB',
+                        borderRadius: '8px',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontFamily: "'Urbanist', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>content_copy</span>
+                      Copy Token
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const registeredName = issuedParticipantPass.name;
+                        setIssuedParticipantPass(null);
+                        setShowAssignStaffModal(false);
+                        setAssignSuccessMsg(`Successfully registered ${registeredName} for ${assignTargetEvent.name}`);
+                        setTimeout(() => setAssignSuccessMsg(null), 5000);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        backgroundColor: '#059669',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '700',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontFamily: "'Urbanist', sans-serif",
+                      }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
               ) : issuedFrontmanCredentials ? (
                 /* Single Member Credentials Modal */
                 <div>
