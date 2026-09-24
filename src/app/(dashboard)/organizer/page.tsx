@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { Sidebar } from '@/components/shared/Sidebar';
+import { EventComparisonChart } from '@/components/organizer/EventComparisonChart';
 
 interface EventListItem {
   id: string;
@@ -19,6 +20,8 @@ interface OrgMemberOption {
   id: string;
   fullName: string;
   email: string;
+  role?: string;
+  imageUrl?: string | null;
 }
 
 export default function OrganizerDashboardPage() {
@@ -39,6 +42,7 @@ export default function OrganizerDashboardPage() {
   const [assignTargetEvent, setAssignTargetEvent] = useState<EventListItem | null>(null);
   const [showAssignStaffModal, setShowAssignStaffModal] = useState(false);
   const [assignMode, setAssignMode] = useState<'SELECT' | 'ALL' | 'NEWCOMER'>('SELECT');
+  const [memberFilterType, setMemberFilterType] = useState<'ALL' | 'AVAILABLE' | 'ASSIGNED'>('ALL');
   const [orgMembers, setOrgMembers] = useState<OrgMemberOption[]>([]);
   const [assignedStaffIds, setAssignedStaffIds] = useState<string[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -74,6 +78,7 @@ export default function OrganizerDashboardPage() {
     setAssignTargetEvent(event);
     setSelectedStaffIds([]);
     setMemberSearchFilter('');
+    setMemberFilterType('ALL');
     setNewcomerFullName('');
     setNewcomerEmail('');
     setNewcomerTicketType('General');
@@ -94,10 +99,12 @@ export default function OrganizerDashboardPage() {
       if (membersRes.ok) {
         const membersData = await membersRes.json();
         setOrgMembers(
-          membersData.map((m: { id: string; fullName: string; email: string }) => ({
+          membersData.map((m: { id: string; fullName: string; email: string; role?: string; imageUrl?: string | null }) => ({
             id: m.id,
             fullName: m.fullName,
             email: m.email,
+            role: m.role,
+            imageUrl: m.imageUrl,
           }))
         );
       }
@@ -211,6 +218,7 @@ export default function OrganizerDashboardPage() {
       const data = await res.json();
 
       if (res.ok) {
+        await fetchEvents();
         if (data.staffList && data.staffList.length > 1) {
           setIssuedBulkCredentials(data.staffList);
         } else if (data.staffList && data.staffList.length === 1) {
@@ -544,8 +552,6 @@ export default function OrganizerDashboardPage() {
           </div>
         </div>
 
-
-
         {assignSuccessMsg && (
           <div
             style={{
@@ -676,16 +682,24 @@ export default function OrganizerDashboardPage() {
           </table>
         </div>
 
+        {/* EVENT ATTENDANCE & REGISTRATION MULTI-BAR CHART */}
+        <div style={{ marginTop: '24px' }}>
+          <EventComparisonChart events={events} loading={loading} />
+        </div>
+
         {/* Assign Member to Event Modal */}
         {/* Assign Member / Register Participant Modal */}
         {showAssignStaffModal && assignTargetEvent && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-            <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '560px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
               {!issuedFrontmanCredentials && !issuedBulkCredentials && !issuedParticipantPass ? (
                 <form onSubmit={handleAssignStaff}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ backgroundColor: '#F3E8FF', color: '#7C3AED', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '800' }}>
                       {assignMode === 'NEWCOMER' ? 'PARTICIPANT REGISTRATION' : 'EVENT STAFF ASSIGNMENT'}
+                    </span>
+                    <span style={{ fontSize: '12px', color: '#6B7280', fontWeight: '600' }}>
+                      Event: <strong style={{ color: '#111827' }}>{assignTargetEvent.name}</strong>
                     </span>
                   </div>
                   <h3 style={{ margin: '0 0 4px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>
@@ -694,7 +708,7 @@ export default function OrganizerDashboardPage() {
                   <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 18px 0' }}>
                     {assignMode === 'NEWCOMER'
                       ? <>Register a new attendee for <strong>{assignTargetEvent.name}</strong> and issue a QR entry ticket.</>
-                      : <>Assign staff to <strong>{assignTargetEvent.name}</strong> as Event Frontmen for ticket scanning.</>}
+                      : <>Select members from your organization to assign to <strong>{assignTargetEvent.name}</strong> for event duties and mobile scanning.</>}
                   </p>
 
                   {/* Mode Selector Tabs (3 Ways to Add) */}
@@ -721,7 +735,7 @@ export default function OrganizerDashboardPage() {
                       }}
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>person</span>
-                      Select Member
+                      Select Member ({orgMembers.length})
                     </button>
 
                     <button
@@ -746,7 +760,7 @@ export default function OrganizerDashboardPage() {
                       }}
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span>
-                      All Members ({orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length})
+                      All Available ({orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length})
                     </button>
 
                     <button
@@ -776,11 +790,15 @@ export default function OrganizerDashboardPage() {
                   </div>
 
                   {loadingMembers ? (
-                    <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
-                      Loading organization members...
+                    <div style={{ padding: '36px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>
+                      <div className="material-symbols-outlined" style={{ fontSize: '32px', color: '#7C3AED', animation: 'spin 1s linear infinite' }}>
+                        progress_activity
+                      </div>
+                      <div style={{ marginTop: '8px' }}>Loading organization members...</div>
                     </div>
                   ) : (() => {
                     const availableMembers = orgMembers.filter((m) => !assignedStaffIds.includes(m.id));
+                    const assignedMembers = orgMembers.filter((m) => assignedStaffIds.includes(m.id));
 
                     if (assignMode === 'NEWCOMER') {
                       return (
@@ -867,34 +885,63 @@ export default function OrganizerDashboardPage() {
                       );
                     }
 
-                    if (availableMembers.length === 0) {
+                    if (orgMembers.length === 0) {
                       return (
-                        <div style={{ padding: '16px', backgroundColor: '#FEF3C7', color: '#D97706', borderRadius: '10px', fontSize: '13px', marginBottom: '20px', border: '1px solid #FDE68A' }}>
-                          <strong>All organization members are already assigned</strong> to this event. You can still use the <strong>Newcomers</strong> tab to register a new participant!
+                        <div style={{ padding: '24px', backgroundColor: '#F9FAFB', border: '1px dashed #D1D5DB', borderRadius: '12px', textAlign: 'center', marginBottom: '20px' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '36px', color: '#9CA3AF', marginBottom: '8px', display: 'block' }}>
+                            group_off
+                          </span>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#111827', marginBottom: '4px' }}>
+                            No organization members found
+                          </div>
+                          <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px 0' }}>
+                            You haven&apos;t added any team members to your organization yet. Go to the Members page to add them.
+                          </p>
+                          <Link
+                            href="/members"
+                            target="_blank"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              backgroundColor: '#2563EB',
+                              color: '#FFFFFF',
+                              padding: '8px 16px',
+                              borderRadius: '8px',
+                              fontSize: '13px',
+                              fontWeight: '700',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>person_add</span>
+                            Add Members on Members Page
+                          </Link>
                         </div>
                       );
                     }
 
                     if (assignMode === 'SELECT') {
-                      const filteredMembers = availableMembers.filter(
+                      // Filter by search query
+                      const searchFiltered = orgMembers.filter(
                         (m) =>
                           m.fullName.toLowerCase().includes(memberSearchFilter.toLowerCase()) ||
                           m.email.toLowerCase().includes(memberSearchFilter.toLowerCase())
                       );
 
+                      // Filter by status tab (All / Available / Assigned)
+                      const filteredMembers = searchFiltered.filter((m) => {
+                        const isAssigned = assignedStaffIds.includes(m.id);
+                        if (memberFilterType === 'AVAILABLE') return !isAssigned;
+                        if (memberFilterType === 'ASSIGNED') return isAssigned;
+                        return true;
+                      });
+
+                      const availableFiltered = filteredMembers.filter((m) => !assignedStaffIds.includes(m.id));
+
                       return (
                         <div style={{ marginBottom: '20px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <label style={{ fontSize: '13px', fontWeight: '700', color: '#374151' }}>
-                              Select Member(s) to Assign
-                            </label>
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: selectedStaffIds.length > 0 ? '#7C3AED' : '#6B7280' }}>
-                              {selectedStaffIds.length} of {availableMembers.length} selected
-                            </span>
-                          </div>
-
-                          {/* Filter / Search input */}
-                          <div style={{ marginBottom: '10px', display: 'flex', gap: '8px' }}>
+                          {/* Search + Filter Header */}
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                             <div style={{ position: 'relative', flex: 1 }}>
                               <input
                                 type="text"
@@ -926,36 +973,38 @@ export default function OrganizerDashboardPage() {
                               </span>
                             </div>
 
-                            {/* Quick Select / Deselect actions */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newIds = Array.from(
-                                  new Set([...selectedStaffIds, ...filteredMembers.map((m) => m.id)])
-                                );
-                                setSelectedStaffIds(newIds);
-                              }}
-                              style={{
-                                padding: '6px 10px',
-                                backgroundColor: '#F3F4F6',
-                                border: '1px solid #E5E7EB',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                color: '#374151',
-                                cursor: 'pointer',
-                                fontFamily: "'Urbanist', sans-serif",
-                              }}
-                            >
-                              Select All
-                            </button>
+                            {availableFiltered.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newIds = Array.from(
+                                    new Set([...selectedStaffIds, ...availableFiltered.map((m) => m.id)])
+                                  );
+                                  setSelectedStaffIds(newIds);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  backgroundColor: '#F3E8FF',
+                                  border: '1px solid #E9D5FF',
+                                  borderRadius: '8px',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  color: '#7C3AED',
+                                  cursor: 'pointer',
+                                  fontFamily: "'Urbanist', sans-serif",
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Select Available
+                              </button>
+                            )}
 
                             {selectedStaffIds.length > 0 && (
                               <button
                                 type="button"
                                 onClick={() => setSelectedStaffIds([])}
                                 style={{
-                                  padding: '6px 10px',
+                                  padding: '6px 12px',
                                   backgroundColor: '#FEE2E2',
                                   border: '1px solid #FECACA',
                                   borderRadius: '8px',
@@ -964,73 +1013,179 @@ export default function OrganizerDashboardPage() {
                                   color: '#DC2626',
                                   cursor: 'pointer',
                                   fontFamily: "'Urbanist', sans-serif",
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                Clear
+                                Clear ({selectedStaffIds.length})
                               </button>
                             )}
                           </div>
 
-                          {/* Scrollable multi-select list */}
+                          {/* Member Status Filter Pills */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => setMemberFilterType('ALL')}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '16px',
+                                  border: memberFilterType === 'ALL' ? '1px solid #7C3AED' : '1px solid #E5E7EB',
+                                  backgroundColor: memberFilterType === 'ALL' ? '#F5F3FF' : '#FFFFFF',
+                                  color: memberFilterType === 'ALL' ? '#7C3AED' : '#6B7280',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                All ({orgMembers.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberFilterType('AVAILABLE')}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '16px',
+                                  border: memberFilterType === 'AVAILABLE' ? '1px solid #2563EB' : '1px solid #E5E7EB',
+                                  backgroundColor: memberFilterType === 'AVAILABLE' ? '#EFF6FF' : '#FFFFFF',
+                                  color: memberFilterType === 'AVAILABLE' ? '#2563EB' : '#6B7280',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Available ({availableMembers.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMemberFilterType('ASSIGNED')}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: '16px',
+                                  border: memberFilterType === 'ASSIGNED' ? '1px solid #059669' : '1px solid #E5E7EB',
+                                  backgroundColor: memberFilterType === 'ASSIGNED' ? '#ECFDF5' : '#FFFFFF',
+                                  color: memberFilterType === 'ASSIGNED' ? '#059669' : '#6B7280',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Already Assigned ({assignedMembers.length})
+                              </button>
+                            </div>
+
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: selectedStaffIds.length > 0 ? '#7C3AED' : '#6B7280' }}>
+                              {selectedStaffIds.length} selected
+                            </span>
+                          </div>
+
+                          {/* Scrollable member list */}
                           <div
                             style={{
                               border: '1px solid #E5E7EB',
                               borderRadius: '10px',
-                              maxHeight: '220px',
+                              maxHeight: '260px',
                               overflowY: 'auto',
                               backgroundColor: '#FFFFFF',
                             }}
                           >
                             {filteredMembers.length === 0 ? (
-                              <div style={{ padding: '16px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
-                                No members found matching &quot;{memberSearchFilter}&quot;
+                              <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
+                                No members found matching your search/filter.
                               </div>
                             ) : (
                               filteredMembers.map((m) => {
+                                const isAssigned = assignedStaffIds.includes(m.id);
                                 const isChecked = selectedStaffIds.includes(m.id);
+
                                 return (
                                   <div
                                     key={m.id}
-                                    onClick={() => handleToggleMemberSelect(m.id)}
+                                    onClick={() => {
+                                      if (!isAssigned) {
+                                        handleToggleMemberSelect(m.id);
+                                      }
+                                    }}
                                     style={{
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'space-between',
                                       padding: '10px 14px',
                                       borderBottom: '1px solid #F3F4F6',
-                                      backgroundColor: isChecked ? '#F5F3FF' : 'transparent',
-                                      cursor: 'pointer',
+                                      backgroundColor: isAssigned
+                                        ? '#F9FAFB'
+                                        : isChecked
+                                        ? '#F5F3FF'
+                                        : '#FFFFFF',
+                                      cursor: isAssigned ? 'default' : 'pointer',
+                                      opacity: isAssigned ? 0.85 : 1,
                                       transition: 'background-color 0.12s ease',
                                     }}
                                   >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={() => handleToggleMemberSelect(m.id)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                                      />
-                                      <div
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          borderRadius: '50%',
-                                          backgroundColor: isChecked ? '#7C3AED' : '#E0E7FF',
-                                          color: isChecked ? '#FFFFFF' : '#4338CA',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          fontWeight: '800',
-                                          fontSize: '12px',
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        {m.fullName.charAt(0).toUpperCase()}
-                                      </div>
+                                      {!isAssigned ? (
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => handleToggleMemberSelect(m.id)}
+                                          onClick={(e) => e.stopPropagation()}
+                                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                        />
+                                      ) : (
+                                        <span
+                                          className="material-symbols-outlined"
+                                          style={{ fontSize: '18px', color: '#059669', width: '16px' }}
+                                        >
+                                          check
+                                        </span>
+                                      )}
+
+                                      {m.imageUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={m.imageUrl}
+                                          alt={m.fullName}
+                                          style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                                        />
+                                      ) : (
+                                        <div
+                                          style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '50%',
+                                            backgroundColor: isAssigned ? '#E5E7EB' : isChecked ? '#7C3AED' : '#E0E7FF',
+                                            color: isAssigned ? '#4B5563' : isChecked ? '#FFFFFF' : '#4338CA',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: '800',
+                                            fontSize: '13px',
+                                            flexShrink: 0,
+                                          }}
+                                        >
+                                          {m.fullName.charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+
                                       <div>
-                                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>
-                                          {m.fullName}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>
+                                            {m.fullName}
+                                          </span>
+                                          {m.role && (
+                                            <span
+                                              style={{
+                                                fontSize: '10px',
+                                                fontWeight: '800',
+                                                padding: '1px 6px',
+                                                borderRadius: '8px',
+                                                backgroundColor: m.role === 'ORGANIZER' ? '#FEF3C7' : '#EFF6FF',
+                                                color: m.role === 'ORGANIZER' ? '#D97706' : '#2563EB',
+                                              }}
+                                            >
+                                              {m.role}
+                                            </span>
+                                          )}
                                         </div>
                                         <div style={{ fontSize: '12px', color: '#6B7280' }}>
                                           {m.email}
@@ -1038,14 +1193,46 @@ export default function OrganizerDashboardPage() {
                                       </div>
                                     </div>
 
-                                    {isChecked && (
-                                      <span
-                                        className="material-symbols-outlined"
-                                        style={{ fontSize: '18px', color: '#7C3AED' }}
-                                      >
-                                        check_circle
-                                      </span>
-                                    )}
+                                    <div>
+                                      {isAssigned ? (
+                                        <span
+                                          style={{
+                                            backgroundColor: '#ECFDF5',
+                                            color: '#059669',
+                                            border: '1px solid #A7F3D0',
+                                            padding: '3px 8px',
+                                            borderRadius: '12px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px',
+                                          }}
+                                        >
+                                          ✓ Assigned to Event
+                                        </span>
+                                      ) : isChecked ? (
+                                        <span
+                                          className="material-symbols-outlined"
+                                          style={{ fontSize: '20px', color: '#7C3AED' }}
+                                        >
+                                          check_circle
+                                        </span>
+                                      ) : (
+                                        <span
+                                          style={{
+                                            color: '#6B7280',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            padding: '2px 8px',
+                                            backgroundColor: '#F3F4F6',
+                                            borderRadius: '10px',
+                                          }}
+                                        >
+                                          Available
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })
@@ -1062,30 +1249,38 @@ export default function OrganizerDashboardPage() {
                               <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#7C3AED' }}>how_to_reg</span>
                               Assign all {availableMembers.length} available member(s) at once:
                             </div>
-                            <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 12px 0' }}>
-                              Every member listed below will be assigned the <strong>Frontman (Scanner)</strong> role for this event and issued mobile app credentials.
-                            </p>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '140px', overflowY: 'auto', padding: '4px 0' }}>
-                              {availableMembers.map((m) => (
-                                <span
-                                  key={m.id}
-                                  style={{
-                                    backgroundColor: '#EFF6FF',
-                                    color: '#1D4ED8',
-                                    border: '1px solid #BFDBFE',
-                                    fontSize: '12px',
-                                    fontWeight: '700',
-                                    padding: '4px 10px',
-                                    borderRadius: '16px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                  }}
-                                >
-                                  {m.fullName}
-                                </span>
-                              ))}
-                            </div>
+                            {availableMembers.length === 0 ? (
+                              <p style={{ fontSize: '13px', color: '#D97706', margin: 0, fontWeight: '600' }}>
+                                All {orgMembers.length} organization members are already assigned to this event!
+                              </p>
+                            ) : (
+                              <>
+                                <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 12px 0' }}>
+                                  Every available member listed below will be assigned to <strong>{assignTargetEvent.name}</strong> for event duties and mobile scanning.
+                                </p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '140px', overflowY: 'auto', padding: '4px 0' }}>
+                                  {availableMembers.map((m) => (
+                                    <span
+                                      key={m.id}
+                                      style={{
+                                        backgroundColor: '#EFF6FF',
+                                        color: '#1D4ED8',
+                                        border: '1px solid #BFDBFE',
+                                        fontSize: '12px',
+                                        fontWeight: '700',
+                                        padding: '4px 10px',
+                                        borderRadius: '16px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                      }}
+                                    >
+                                      {m.fullName}
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -1098,65 +1293,84 @@ export default function OrganizerDashboardPage() {
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAssignStaffModal(false);
-                        setSelectedStaffIds([]);
-                        setNewcomerFullName('');
-                        setNewcomerEmail('');
-                        setNewcomerTicketType('General');
-                        setAssignError(null);
-                      }}
-                      style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF', fontFamily: "'Urbanist', sans-serif" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={
-                        isAssigningStaff ||
-                        loadingMembers ||
-                        (assignMode === 'SELECT' && selectedStaffIds.length === 0) ||
-                        (assignMode === 'ALL' && orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length === 0) ||
-                        (assignMode === 'NEWCOMER' && (!newcomerFullName.trim() || !newcomerEmail.trim()))
-                      }
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                    <Link
+                      href="/members"
+                      target="_blank"
                       style={{
-                        padding: '10px 20px',
-                        backgroundColor: assignMode === 'NEWCOMER' ? '#059669' : '#7C3AED',
-                        color: '#FFF',
-                        border: 'none',
-                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: '#2563EB',
+                        textDecoration: 'none',
                         fontWeight: '700',
-                        cursor: 'pointer',
-                        opacity:
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>open_in_new</span>
+                      Manage Organization Members
+                    </Link>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAssignStaffModal(false);
+                          setSelectedStaffIds([]);
+                          setNewcomerFullName('');
+                          setNewcomerEmail('');
+                          setNewcomerTicketType('General');
+                          setAssignError(null);
+                        }}
+                        style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF', fontFamily: "'Urbanist', sans-serif" }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={
                           isAssigningStaff ||
                           loadingMembers ||
                           (assignMode === 'SELECT' && selectedStaffIds.length === 0) ||
                           (assignMode === 'ALL' && orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length === 0) ||
                           (assignMode === 'NEWCOMER' && (!newcomerFullName.trim() || !newcomerEmail.trim()))
-                            ? 0.6
-                            : 1,
-                        fontFamily: "'Urbanist', sans-serif",
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-                        {assignMode === 'ALL' ? 'group_add' : assignMode === 'NEWCOMER' ? 'how_to_reg' : 'person_add'}
-                      </span>
-                      {isAssigningStaff
-                        ? (assignMode === 'NEWCOMER' ? 'Registering...' : 'Assigning...')
-                        : assignMode === 'NEWCOMER'
-                        ? 'Register Participant & Issue Ticket'
-                        : assignMode === 'ALL'
-                        ? `Add All (${orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length}) Members`
-                        : selectedStaffIds.length > 0
-                        ? `Add Selected (${selectedStaffIds.length}) Member${selectedStaffIds.length === 1 ? '' : 's'}`
-                        : 'Add Member(s)'}
-                    </button>
+                        }
+                        style={{
+                          padding: '10px 20px',
+                          backgroundColor: assignMode === 'NEWCOMER' ? '#059669' : '#7C3AED',
+                          color: '#FFF',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          opacity:
+                            isAssigningStaff ||
+                            loadingMembers ||
+                            (assignMode === 'SELECT' && selectedStaffIds.length === 0) ||
+                            (assignMode === 'ALL' && orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length === 0) ||
+                            (assignMode === 'NEWCOMER' && (!newcomerFullName.trim() || !newcomerEmail.trim()))
+                              ? 0.6
+                              : 1,
+                          fontFamily: "'Urbanist', sans-serif",
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                          {assignMode === 'ALL' ? 'group_add' : assignMode === 'NEWCOMER' ? 'how_to_reg' : 'person_add'}
+                        </span>
+                        {isAssigningStaff
+                          ? (assignMode === 'NEWCOMER' ? 'Registering...' : 'Assigning...')
+                          : assignMode === 'NEWCOMER'
+                          ? 'Register Participant & Issue Ticket'
+                          : assignMode === 'ALL'
+                          ? `Add All (${orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length}) Members`
+                          : selectedStaffIds.length > 0
+                          ? `Add Selected (${selectedStaffIds.length}) Member${selectedStaffIds.length === 1 ? '' : 's'}`
+                          : 'Add Member(s)'}
+                      </button>
+                    </div>
                   </div>
                 </form>
               ) : issuedParticipantPass ? (

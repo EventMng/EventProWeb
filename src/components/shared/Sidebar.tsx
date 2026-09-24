@@ -73,7 +73,7 @@ export function Sidebar() {
       { name: 'Dashboard', href: '/organizer', icon: 'dashboard' },
       { name: 'Events', href: '/events', icon: 'calendar_today' },
       { name: 'Participants', href: '/participants', icon: 'group' },
-      { name: 'Members', href: '/members', icon: 'badge' },
+      { name: 'Members', href: '/organizer/members', icon: 'badge' },
       { name: 'Settings', href: '/admin', icon: 'settings' },
     ]
     : [

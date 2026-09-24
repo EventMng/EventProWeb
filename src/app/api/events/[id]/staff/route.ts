@@ -3,6 +3,94 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
 import { hashPassword, generateTempPassword } from "@/lib/password";
+import { signQRToken } from "@/lib/qr-token";
+import { sendQRInvitation } from "@/lib/mailer";
+
+// Helper to ensure member/user is also registered as a participant for the event
+async function ensureEventParticipant(
+  eventId: string,
+  eventOrgId: string,
+  eventName: string,
+  user: { id: string; fullName: string; email: string; imageUrl?: string | null; role?: string },
+  creatorId: string,
+  ticketType?: string
+) {
+  const normalizedEmail = user.email.trim().toLowerCase();
+
+  // 1. Find or create Participant record
+  let participant = await db.participant.findFirst({
+    where: {
+      email: normalizedEmail,
+      organizationId: eventOrgId,
+    },
+  });
+
+  if (!participant) {
+    participant = await db.participant.create({
+      data: {
+        organizationId: eventOrgId,
+        fullName: user.fullName.trim(),
+        email: normalizedEmail,
+        imageUrl: user.imageUrl ?? null,
+        createdById: creatorId,
+      },
+    });
+  }
+
+  // 2. Check if already registered for this event
+  const existingReg = await db.eventRegistration.findUnique({
+    where: {
+      eventId_participantId: {
+        eventId,
+        participantId: participant.id,
+      },
+    },
+  });
+
+  if (!existingReg) {
+    const regTicketType =
+      ticketType ||
+      (user.role === "ORGANIZER"
+        ? "Organizer"
+        : user.role === "FRONTMAN"
+          ? "Staff"
+          : "General");
+
+    const registration = await db.eventRegistration.create({
+      data: {
+        eventId,
+        participantId: participant.id,
+        ticketType: regTicketType,
+        qrToken: `temp_${Date.now()}_${Math.random()}`,
+      },
+    });
+
+    const qrToken = await signQRToken({
+      registrationId: registration.id,
+      eventId,
+      participantId: participant.id,
+    });
+
+    await db.eventRegistration.update({
+      where: { id: registration.id },
+      data: {
+        qrToken,
+        invitationSentAt: new Date(),
+      },
+    });
+
+    try {
+      await sendQRInvitation({
+        to: normalizedEmail,
+        participantName: user.fullName,
+        eventName: eventName,
+        qrToken,
+      });
+    } catch (e) {
+      console.error("Failed to send QR invitation to assigned member:", e);
+    }
+  }
+}
 
 // GET /api/events/[id]/staff — List members assigned to this event
 export async function GET(
@@ -58,7 +146,7 @@ export async function GET(
   }
 }
 
-// POST /api/events/[id]/staff — Assign member(s) to this event with Event Frontman role
+// POST /api/events/[id]/staff — Assign member(s) to this event with Event Frontman role & register as participants
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -75,7 +163,7 @@ export async function POST(
     const { id: eventId } = await params;
     const event = await db.event.findUnique({
       where: { id: eventId },
-      select: { id: true, organizationId: true },
+      select: { id: true, name: true, organizationId: true },
     });
 
     if (!event || event.organizationId !== user.organizationId) {
@@ -88,7 +176,7 @@ export async function POST(
 
     // --- Newcomer Registration and Event Assignment ---
     if (newcomerData) {
-      const { fullName, email } = newcomerData;
+      const { fullName, email, ticketType } = newcomerData;
       if (typeof fullName !== "string" || !fullName.trim()) {
         return NextResponse.json({ error: "fullName is required for newcomer" }, { status: 400 });
       }
@@ -164,6 +252,16 @@ export async function POST(
         },
       });
 
+      // Ensure registered in participants for this event
+      await ensureEventParticipant(
+        eventId,
+        event.organizationId,
+        event.name,
+        targetUser,
+        user.id,
+        ticketType || "General"
+      );
+
       return NextResponse.json({
         message: "New member registered and assigned to event successfully",
         staff: {
@@ -181,7 +279,7 @@ export async function POST(
 
     // --- Bulk Assignment (all: true or userIds: string[]) ---
     if (all === true || Array.isArray(userIds)) {
-      let targetUsers: { id: string; fullName: string; email: string; imageUrl: string | null }[] = [];
+      let targetUsers: { id: string; fullName: string; email: string; imageUrl: string | null; role?: string }[] = [];
 
       if (all === true) {
         // Fetch all organization users not yet assigned to this event
@@ -198,7 +296,7 @@ export async function POST(
               { organizations: { some: { id: user.organizationId } } },
             ],
           },
-          select: { id: true, fullName: true, email: true, imageUrl: true },
+          select: { id: true, fullName: true, email: true, imageUrl: true, role: true },
         });
 
         targetUsers = orgUsers.filter((u) => !assignedIds.has(u.id));
@@ -212,7 +310,7 @@ export async function POST(
               { organizations: { some: { id: user.organizationId } } },
             ],
           },
-          select: { id: true, fullName: true, email: true, imageUrl: true },
+          select: { id: true, fullName: true, email: true, imageUrl: true, role: true },
         });
       }
 
@@ -241,11 +339,20 @@ export async function POST(
           },
         });
 
+        // Also register member as a participant of the event
+        await ensureEventParticipant(
+          eventId,
+          event.organizationId,
+          event.name,
+          targetUser,
+          user.id
+        );
+
         assignedList.push({
           id: targetUser.id,
           fullName: targetUser.fullName,
           email: targetUser.email,
-          role: "FRONTMAN",
+          role: targetUser.role || "FRONTMAN",
         });
       }
 
@@ -297,10 +404,20 @@ export async function POST(
             email: true,
             imageUrl: true,
             isTemporaryPassword: true,
+            role: true,
           },
         },
       },
     });
+
+    // Also register member as a participant of the event
+    await ensureEventParticipant(
+      eventId,
+      event.organizationId,
+      event.name,
+      targetUser,
+      user.id
+    );
 
     return NextResponse.json({
       message: "Member assigned to event successfully",
@@ -311,7 +428,7 @@ export async function POST(
         imageUrl: assignment.user.imageUrl,
         isTemporaryPassword: assignment.user.isTemporaryPassword,
         assignedAt: assignment.assignedAt,
-        role: "FRONTMAN",
+        role: assignment.user.role || "FRONTMAN",
       },
     });
   } catch (error) {
