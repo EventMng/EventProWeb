@@ -19,9 +19,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // "New event" is hidden for ORG_ADMIN — only Organizers create events from
-  // this page. Starts null (nothing shown) so admins never see a flash of
-  // the button before their role is known.
+  // "New event" is available for Organizers, Org Admins, and System Admins.
   const [viewerRole, setViewerRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,12 +30,13 @@ export default function EventsPage() {
         if (!cancelled && data?.user?.role) setViewerRole(data.user.role);
       })
       .catch(() => {
-        // Leave viewerRole null on failure — button stays hidden, the safe default.
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const canCreateEvent = !viewerRole || (viewerRole !== 'FRONTMAN' && viewerRole !== 'MEMBER');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [eventName, setEventName] = useState('');
@@ -186,7 +185,7 @@ export default function EventsPage() {
             Events
           </h1>
 
-          {viewerRole && viewerRole !== 'ORG_ADMIN' && (
+          {canCreateEvent && (
             <button
               onClick={() => setShowCreateModal(true)}
               style={{
