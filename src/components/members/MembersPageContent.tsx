@@ -7,7 +7,7 @@ interface MemberItem {
   id: string;
   name: string;
   email: string;
-  role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN';
+  role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN' | 'MEMBER';
   imageUrl?: string | null;
   status: 'Active' | 'Temp Password Issued';
   tempPassword?: string;
@@ -17,7 +17,7 @@ interface ApiMember {
   id: string;
   fullName: string;
   email: string;
-  role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN' | 'SYSTEM_ADMIN';
+  role: 'ORGANIZER' | 'FRONTMAN' | 'ORG_ADMIN' | 'SYSTEM_ADMIN' | 'MEMBER';
   imageUrl?: string | null;
   isTemporaryPassword: boolean;
 }

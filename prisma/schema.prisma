@@ -12,6 +12,7 @@ enum UserRole {
   ORG_ADMIN
   ORGANIZER
   FRONTMAN
+  MEMBER
 }
 
 model Organization {

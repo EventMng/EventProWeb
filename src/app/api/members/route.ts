@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/authz";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { sendMemberInvitation } from "@/lib/mailer";
 
-const ASSIGNABLE_ROLES = ["ORGANIZER", "FRONTMAN"] as const;
+const ASSIGNABLE_ROLES = ["ORGANIZER", "FRONTMAN", "MEMBER", "ORG_ADMIN"] as const;
 
 // GET /api/members — list this organization's members
 export async function GET(request: NextRequest) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { fullName, email, imageUrl } = body;
-    const role = body.role || "FRONTMAN";
+    const role = body.role || "MEMBER";
 
     if (typeof fullName !== "string" || !fullName.trim()) {
       return NextResponse.json({ error: "fullName is required." }, { status: 400 });
