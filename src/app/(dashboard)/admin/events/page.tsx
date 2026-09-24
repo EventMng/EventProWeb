@@ -1,5 +1,5 @@
 import { EventsPageContent } from '@/components/events/EventsPageContent';
 
-export default function EventsPage() {
+export default function AdminEventsPage() {
   return <EventsPageContent />;
 }

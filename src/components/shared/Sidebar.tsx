@@ -77,9 +77,9 @@ export function Sidebar() {
     ]
     : [
       { name: 'Dashboard', href: '/admin', icon: 'dashboard' },
-      { name: 'Events', href: '/events', icon: 'calendar_today' },
-      { name: 'Members', href: '/members', icon: 'badge' },
-      { name: 'Settings', href: '/settings', icon: 'settings' },
+      { name: 'Events', href: '/admin/events', icon: 'calendar_today' },
+      { name: 'Members', href: '/admin/members', icon: 'badge' },
+      { name: 'Settings', href: '/admin/settings', icon: 'settings' },
     ];
 
   const mockProfile = role === 'ORGANIZER'
