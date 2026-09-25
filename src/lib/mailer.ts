@@ -163,6 +163,102 @@ export async function sendQRInvitation(input: SendQRInvitationInput): Promise<bo
     console.error(`[SMTP] Failed to send email to ${to}:`, error);
     return false;
   }
+}
 
+export interface SendFrontmanAssignmentInput {
+  to: string;
+  fullName: string;
+  eventName: string;
+  eventDate?: string;
+  location?: string;
+  organizationName: string;
+  tempPassword: string;
+}
+
+export async function sendFrontmanAssignmentEmail(input: SendFrontmanAssignmentInput): Promise<boolean> {
+  const { to, fullName, eventName, eventDate, location, organizationName, tempPassword } = input;
+
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
+    port: port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER || 'api',
+      pass: process.env.SMTP_PASS || '',
+    },
+  });
+
+  const htmlContent = `
+    <div style="font-family: 'Inter', Arial, sans-serif; max-width: 520px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+      <!-- Header Bar -->
+      <div style="background-color: #032042; padding: 24px; text-align: center; color: #ffffff;">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">EventPro</h2>
+        <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">Frontman Scanner Assignment</p>
+      </div>
+
+      <!-- Body Content -->
+      <div style="padding: 28px 24px;">
+        <h3 style="margin: 0 0 12px 0; color: #111827; font-size: 20px;">Hello, ${fullName}!</h3>
+        <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+          You have been assigned as a <strong>Frontman (Ticket Scanner)</strong> for <strong>${eventName}</strong> by <strong>${organizationName}</strong>.
+        </p>
+
+        <p style="color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+          You can log into the <strong>EventPro Mobile App</strong> using the credentials below to scan attendee QR codes and manage gate check-ins:
+        </p>
+
+        <!-- Credentials Box -->
+        <div style="background-color: #f9fafb; padding: 20px; border-radius: 10px; border: 1px dashed #7c3aed; margin-bottom: 24px;">
+          <div style="margin-bottom: 12px;">
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">App Login Username</span>
+            <span style="font-size: 15px; font-weight: 700; color: #111827;">${to}</span>
+          </div>
+          <div>
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Temporary Password</span>
+            <span style="font-family: monospace; font-size: 18px; font-weight: 800; color: #7c3aed; letter-spacing: 0.05em;">${tempPassword}</span>
+          </div>
+        </div>
+
+        <!-- Event Details Box -->
+        <div style="background-color: #eff6ff; padding: 16px; border-radius: 8px; font-size: 13px; color: #1e40af; margin-bottom: 20px;">
+          <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 14px; color: #1e3a8a;">Event Details</p>
+          <p style="margin: 4px 0;">🎯 <strong>Event:</strong> ${eventName}</p>
+          ${eventDate ? `<p style="margin: 4px 0;">📅 <strong>Date:</strong> ${eventDate}</p>` : ''}
+          ${location ? `<p style="margin: 4px 0;">📍 <strong>Venue:</strong> ${location}</p>` : ''}
+        </div>
+
+        <p style="font-size: 12px; color: #9ca3af; margin: 0; line-height: 1.5; text-align: center;">
+          Please sign into the EventPro Mobile App prior to the event. For security, you may update your password in your profile settings after logging in.
+        </p>
+      </div>
+    </div>
+  `;
+
+  if (!process.env.SMTP_USER) {
+    console.warn(`SMTP is not configured. Frontman credentials email not sent to ${to}.`);
+    return true;
+  }
+
+  const headers: Record<string, string> = {};
+  if (process.env.POSTMARK_STREAM) {
+    headers['X-PM-Message-Stream'] = process.env.POSTMARK_STREAM;
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: getMailFrom(),
+      to,
+      subject: `Your Frontman Login Credentials for ${eventName}`,
+      html: htmlContent,
+      text: `Hello ${fullName},\n\nYou have been assigned as a Frontman (Ticket Scanner) for "${eventName}" by ${organizationName}.\n\nUse the credentials below to log into the EventPro Mobile App:\n\nEmail: ${to}\nTemporary Password: ${tempPassword}\n\nEvent: ${eventName}${eventDate ? `\nDate: ${eventDate}` : ''}${location ? `\nVenue: ${location}` : ''}\n\nBest regards,\nEventPro Team`,
+      headers,
+    });
+    console.log(`[SMTP] Frontman assignment email sent successfully to ${to} (Message ID: ${info.messageId})`);
+    return true;
+  } catch (error) {
+    console.error(`[SMTP] Failed to send frontman assignment email to ${to}:`, error);
+    return false;
+  }
 }
 
