@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { signQRToken } from "@/lib/qr-token";
-import { sendQRInvitation } from "@/lib/mailer";
+import { sendQRInvitation, sendFrontmanAssignmentEmail } from "@/lib/mailer";
 
 // Helper to ensure member/user is also registered as a participant for the event
 async function ensureEventParticipant(
@@ -163,12 +163,31 @@ export async function POST(
     const { id: eventId } = await params;
     const event = await db.event.findUnique({
       where: { id: eventId },
-      select: { id: true, name: true, organizationId: true },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        eventDate: true,
+        organizationId: true,
+        organization: { select: { name: true } },
+      },
     });
 
     if (!event || event.organizationId !== user.organizationId) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+
+    const formattedEventDate = event?.eventDate
+      ? new Date(event.eventDate).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : undefined;
+    const orgName = event?.organization?.name ?? "Your Organization";
 
     const body = await request.json();
     const { userId, userIds, all, newcomer, newMember } = body;
@@ -190,27 +209,26 @@ export async function POST(
         include: { organizations: { select: { id: true } } },
       });
 
-      let tempPassword: string | undefined;
+      let tempPassword: string = generateTempPassword();
+      const passwordHash = await hashPassword(tempPassword);
 
       if (targetUser) {
-        // Link to organization if not already linked, but preserve existing role and password
+        // Link to organization if not already linked, update password and role
         const isLinked =
           targetUser.organizationId === user.organizationId ||
           targetUser.organizations.some((o) => o.id === user.organizationId);
 
-        if (!isLinked) {
-          targetUser = await db.user.update({
-            where: { id: targetUser.id },
-            data: {
-              organizations: { connect: { id: user.organizationId } },
-            },
-            include: { organizations: { select: { id: true } } },
-          });
-        }
+        targetUser = await db.user.update({
+          where: { id: targetUser.id },
+          data: {
+            passwordHash,
+            isTemporaryPassword: true,
+            ...( (targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+            ...(!isLinked ? { organizations: { connect: { id: user.organizationId } } } : {}),
+          },
+          include: { organizations: { select: { id: true } } },
+        });
       } else {
-        tempPassword = generateTempPassword();
-        const passwordHash = await hashPassword(tempPassword);
-
         targetUser = await db.user.create({
           data: {
             organizationId: user.organizationId,
@@ -261,6 +279,21 @@ export async function POST(
         user.id,
         ticketType || "General"
       );
+
+      // Send frontman mobile app login credentials email
+      try {
+        await sendFrontmanAssignmentEmail({
+          to: targetUser.email,
+          fullName: targetUser.fullName,
+          eventName: event.name,
+          eventDate: formattedEventDate,
+          location: event.location ?? undefined,
+          organizationName: orgName,
+          tempPassword,
+        });
+      } catch (mailErr) {
+        console.error("Failed to send frontman assignment email to newcomer:", mailErr);
+      }
 
       return NextResponse.json({
         message: "New member registered and assigned to event successfully",
@@ -325,17 +358,36 @@ export async function POST(
       const assignedList = [];
 
       for (const targetUser of targetUsers) {
+        const tempPassword = generateTempPassword();
+        const passwordHash = await hashPassword(tempPassword);
+
+        const updatedUser = await db.user.update({
+          where: { id: targetUser.id },
+          data: {
+            passwordHash,
+            isTemporaryPassword: true,
+            ...( (targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+          },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            imageUrl: true,
+            role: true,
+          },
+        });
+
         await db.eventFrontman.upsert({
           where: {
             eventId_userId: {
               eventId,
-              userId: targetUser.id,
+              userId: updatedUser.id,
             },
           },
           update: {},
           create: {
             eventId,
-            userId: targetUser.id,
+            userId: updatedUser.id,
           },
         });
 
@@ -344,15 +396,31 @@ export async function POST(
           eventId,
           event.organizationId,
           event.name,
-          targetUser,
+          updatedUser,
           user.id
         );
 
+        // Send frontman mobile app login credentials email
+        try {
+          await sendFrontmanAssignmentEmail({
+            to: updatedUser.email,
+            fullName: updatedUser.fullName,
+            eventName: event.name,
+            eventDate: formattedEventDate,
+            location: event.location ?? undefined,
+            organizationName: orgName,
+            tempPassword,
+          });
+        } catch (mailErr) {
+          console.error("Failed to send frontman assignment email during bulk assignment:", mailErr);
+        }
+
         assignedList.push({
-          id: targetUser.id,
-          fullName: targetUser.fullName,
-          email: targetUser.email,
-          role: targetUser.role || "FRONTMAN",
+          id: updatedUser.id,
+          fullName: updatedUser.fullName,
+          email: updatedUser.email,
+          role: updatedUser.role || "FRONTMAN",
+          tempPassword,
         });
       }
 
@@ -382,6 +450,27 @@ export async function POST(
     if (!targetUser) {
       return NextResponse.json({ error: "User not found in organization" }, { status: 404 });
     }
+
+    // Generate temporary password for frontman mobile login
+    const tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
+
+    const updatedUser = await db.user.update({
+      where: { id: targetUser.id },
+      data: {
+        passwordHash,
+        isTemporaryPassword: true,
+        ...( (targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        imageUrl: true,
+        isTemporaryPassword: true,
+        role: true,
+      },
+    });
 
     // Assign to event
     const assignment = await db.eventFrontman.upsert({
@@ -415,9 +504,24 @@ export async function POST(
       eventId,
       event.organizationId,
       event.name,
-      targetUser,
+      updatedUser,
       user.id
     );
+
+    // Send frontman mobile app login credentials email
+    try {
+      await sendFrontmanAssignmentEmail({
+        to: updatedUser.email,
+        fullName: updatedUser.fullName,
+        eventName: event.name,
+        eventDate: formattedEventDate,
+        location: event.location ?? undefined,
+        organizationName: orgName,
+        tempPassword,
+      });
+    } catch (mailErr) {
+      console.error("Failed to send frontman assignment email:", mailErr);
+    }
 
     return NextResponse.json({
       message: "Member assigned to event successfully",
@@ -430,6 +534,7 @@ export async function POST(
         assignedAt: assignment.assignedAt,
         role: assignment.user.role || "FRONTMAN",
       },
+      tempPassword,
     });
   } catch (error) {
     console.error("Failed to assign staff to event:", error);

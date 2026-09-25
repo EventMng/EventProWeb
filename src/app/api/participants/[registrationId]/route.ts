@@ -19,7 +19,7 @@ export async function PATCH(
     if (roleCheck) return roleCheck;
 
     const { registrationId } = await params;
-    const registration = await loadOwnedRegistration(registrationId, user.organizationId);
+    const registration = await loadOwnedRegistration(registrationId, user.organizationId, user.id);
 
     // Same response for "doesn't exist" and "exists in another org".
     if (!registration) {
@@ -71,7 +71,7 @@ export async function DELETE(
     if (roleCheck) return roleCheck;
 
     const { registrationId } = await params;
-    const registration = await loadOwnedRegistration(registrationId, user.organizationId);
+    const registration = await loadOwnedRegistration(registrationId, user.organizationId, user.id);
 
     if (!registration) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
