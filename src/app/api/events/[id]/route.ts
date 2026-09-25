@@ -15,17 +15,41 @@ export async function GET(
       return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
     }
 
-    const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER']);
+    const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER', 'FRONTMAN']);
     if (roleCheck) return roleCheck;
 
     const { id } = await params;
     const event = await db.event.findUnique({
       where: { id },
-      include: { registrations: { select: { attended: true } } },
+      include: {
+        registrations: { select: { attended: true } },
+        frontmen: { select: { userId: true } },
+      },
     });
 
-    // Same response for "doesn't exist" and "exists in another org".
-    if (!event || event.organizationId !== user.organizationId) {
+    if (!event) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+    }
+
+    const userRecord = await db.user.findUnique({
+      where: { id: user.id },
+      select: {
+        organizationId: true,
+        organizations: { select: { id: true } },
+      },
+    });
+
+    const userOrgIds = new Set(
+      [
+        user.organizationId,
+        ...(userRecord?.organizations?.map((o) => o.id) || []),
+      ].filter(Boolean) as string[]
+    );
+
+    const isAssignedFrontman = event.frontmen.some((f) => f.userId === user.id);
+    const belongsToOrg = userOrgIds.has(event.organizationId);
+
+    if (user.role !== 'SYSTEM_ADMIN' && !belongsToOrg && !isAssignedFrontman) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 

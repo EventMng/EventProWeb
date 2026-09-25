@@ -16,9 +16,38 @@ export async function GET(request: NextRequest) {
     const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER', 'FRONTMAN']);
     if (roleCheck) return roleCheck;
 
-    const whereClause: Prisma.EventWhereInput = { organizationId: user.organizationId };
-    if (user.role === "FRONTMAN") {
-      whereClause.frontmen = { some: { userId: user.id } };
+    const userRecord = await db.user.findUnique({
+      where: { id: user.id },
+      select: {
+        organizationId: true,
+        organizations: { select: { id: true } },
+      },
+    });
+
+    const orgIds = Array.from(
+      new Set(
+        [
+          user.organizationId,
+          ...(userRecord?.organizations?.map((o) => o.id) || []),
+        ].filter(Boolean) as string[]
+      )
+    );
+
+    const assignedOnly = request.nextUrl.searchParams.get('assignedOnly') === 'true';
+
+    let whereClause: Prisma.EventWhereInput;
+    if (user.role === 'FRONTMAN' || assignedOnly) {
+      // Frontman (or mobile frontman scanner app) ONLY sees events they are assigned to
+      whereClause = {
+        frontmen: { some: { userId: user.id } },
+      };
+    } else if (user.role === 'SYSTEM_ADMIN') {
+      whereClause = {};
+    } else {
+      // Admins / Organizers on Web portal see their organization events
+      whereClause = {
+        organizationId: { in: orgIds },
+      };
     }
 
     const events = await db.event.findMany({
