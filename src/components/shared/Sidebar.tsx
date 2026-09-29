@@ -7,6 +7,7 @@ import { ROLE_LABELS } from '@/lib/roles';
 
 type SessionProfile = {
   fullName: string;
+  role: 'ORG_ADMIN' | 'ORGANIZER' | 'SYSTEM_ADMIN' | 'FRONTMAN' | 'MEMBER';
   roleLabel: string;
 };
 
@@ -18,18 +19,22 @@ export function Sidebar() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Fetch the verified session from the server
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data?.user) return;
         setSessionProfile({
           fullName: data.user.fullName,
+          role: data.user.role,
           roleLabel: ROLE_LABELS[data.user.role as keyof typeof ROLE_LABELS] ?? data.user.role,
         });
       })
       .catch(() => {
-        // Not authenticated (or request failed) — fall back to the mock profile below.
+        // Unauthenticated or network error
       });
+
     return () => {
       cancelled = true;
     };
@@ -40,35 +45,15 @@ export function Sidebar() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
-      localStorage.removeItem('eventpro_user_role');
       router.push('/login');
     }
   };
 
-  // Set initial role based on pathname to avoid UI flash during SSR/initial render
-  const initialRole = pathname.startsWith('/organizer') ? 'ORGANIZER' : 'ORG_ADMIN';
-  const [role, setRole] = useState<'ORG_ADMIN' | 'ORGANIZER'>(initialRole);
+  // Derive the active role securely from the verified session
+  const isOrganizer = sessionProfile?.role === 'ORGANIZER';
 
-  useEffect(() => {
-    let activeRole: 'ORG_ADMIN' | 'ORGANIZER' = 'ORG_ADMIN';
-    if (pathname.startsWith('/organizer')) {
-      activeRole = 'ORGANIZER';
-      localStorage.setItem('eventpro_user_role', 'ORGANIZER');
-    } else if (pathname === '/admin' || pathname === '/dashboard' || pathname.startsWith('/members') || pathname.startsWith('/settings')) {
-      activeRole = 'ORG_ADMIN';
-      localStorage.setItem('eventpro_user_role', 'ORG_ADMIN');
-    } else {
-      // For general routes like /events, check localStorage to preserve state
-      const saved = localStorage.getItem('eventpro_user_role');
-      if (saved === 'ORGANIZER') {
-        activeRole = 'ORGANIZER';
-      }
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberately deferred to an effect: reading localStorage during render would cause an SSR/hydration mismatch, which is exactly why initialRole above is used for the first render instead.
-    setRole(activeRole);
-  }, [pathname]);
-
-  const menuItems = role === 'ORGANIZER'
+  // Menu items strictly based on the authenticated session role
+  const menuItems = isOrganizer
     ? [
       { name: 'Dashboard', href: '/organizer', icon: 'dashboard' },
       { name: 'Events', href: '/organizer/events', icon: 'calendar_today' },
@@ -82,20 +67,11 @@ export function Sidebar() {
       { name: 'Settings', href: '/admin/settings', icon: 'settings' },
     ];
 
-  const mockProfile = role === 'ORGANIZER'
-    ? { name: 'Kamal Perera', roleLabel: 'Event Organizer', initial: 'K' }
-    : { name: 'Sanduni Perera', roleLabel: 'Org Admin', initial: 'S' };
-
-  // Prefer the real logged-in user's name/role once /api/auth/me resolves;
-  // fall back to the pathname-based mock profile on pages without a session
-  // (or before the fetch above completes).
-  const profile = sessionProfile
-    ? {
-        name: sessionProfile.fullName,
-        roleLabel: sessionProfile.roleLabel,
-        initial: sessionProfile.fullName.trim().charAt(0).toUpperCase() || '?',
-      }
-    : mockProfile;
+  const profile = {
+    name: sessionProfile?.fullName ?? 'Loading…',
+    roleLabel: sessionProfile?.roleLabel ?? '…',
+    initial: sessionProfile?.fullName ? sessionProfile.fullName.trim().charAt(0).toUpperCase() : '•',
+  };
 
   return (
     <aside
