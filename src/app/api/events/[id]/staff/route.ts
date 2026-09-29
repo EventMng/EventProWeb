@@ -564,6 +564,16 @@ export async function DELETE(
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
 
+    // validate Organization Ownership (BOLA/IDOR)
+    const event = await db.event.findUnique({
+      where: { id:eventId },
+      select: { id: true, organizationId: true},
+    });
+
+    if (!event || event.organizationId !== user.organizationId) {
+      return NextResponse.json({ error: "Event not found"}, { status: 404});
+    }
+
     await db.eventFrontman.deleteMany({
       where: {
         eventId,
