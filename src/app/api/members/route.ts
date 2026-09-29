@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
+    // GET/api/members - list this organization's members
     const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
     if (roleCheck) return roleCheck;
 
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
-    const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
+    // POST/api/members - add a member (or link existing user) to organization
+    const roleCheck = requireRole(user, ["ORG_ADMIN"]);
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
