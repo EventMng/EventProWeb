@@ -34,6 +34,19 @@ export default async function AdminDashboardPage() {
     redirect('/login');
   }
 
+  // Enforce role guard: only org_admin can access 
+  if (user.role === 'ORGANIZER') {
+    redirect('/organizer');
+  }
+
+  if (user.role !== 'ORG_ADMIN') {
+    redirect('/login');
+  }
+
+  if (user.role === 'ORG_ADMIN') {
+    redirect('/admin');
+  }
+
   return (
     <DashboardClient
       fullName={user.fullName}
