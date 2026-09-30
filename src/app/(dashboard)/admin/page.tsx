@@ -43,10 +43,6 @@ export default async function AdminDashboardPage() {
     redirect('/login');
   }
 
-  if (user.role === 'ORG_ADMIN') {
-    redirect('/admin');
-  }
-
   return (
     <DashboardClient
       fullName={user.fullName}

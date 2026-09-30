@@ -11,8 +11,8 @@ export interface SendQRInvitationInput {
 }
 
 const getMailFrom = (): string => {
-  const from = process.env.MAIL_FROM;
-  if (from) return from;
+  const from = process.env.MAIL_FROM?.trim();
+  if (from && from !== '\\' && from !== '""' && from !== "''") return from;
   console.warn('MAIL_FROM is not set; falling back to a placeholder sender address.');
   return '"EventPro" <no-reply@eventpro.local>';
 };
@@ -172,7 +172,7 @@ export interface SendFrontmanAssignmentInput {
   eventDate?: string;
   location?: string;
   organizationName: string;
-  tempPassword: string;
+  tempPassword?: string;
 }
 
 export async function sendFrontmanAssignmentEmail(input: SendFrontmanAssignmentInput): Promise<boolean> {
@@ -188,6 +188,16 @@ export async function sendFrontmanAssignmentEmail(input: SendFrontmanAssignmentI
       pass: process.env.SMTP_PASS || '',
     },
   });
+
+  const passwordBoxHtml = tempPassword
+    ? `<div>
+        <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Temporary Password</span>
+        <span style="font-family: monospace; font-size: 18px; font-weight: 800; color: #7c3aed; letter-spacing: 0.05em;">${tempPassword}</span>
+      </div>`
+    : `<div>
+        <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Account Password</span>
+        <span style="font-size: 14px; font-weight: 600; color: #374151;">Use your existing account password</span>
+      </div>`;
 
   const htmlContent = `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 520px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
@@ -214,10 +224,7 @@ export async function sendFrontmanAssignmentEmail(input: SendFrontmanAssignmentI
             <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">App Login Username</span>
             <span style="font-size: 15px; font-weight: 700; color: #111827;">${to}</span>
           </div>
-          <div>
-            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Temporary Password</span>
-            <span style="font-family: monospace; font-size: 18px; font-weight: 800; color: #7c3aed; letter-spacing: 0.05em;">${tempPassword}</span>
-          </div>
+          ${passwordBoxHtml}
         </div>
 
         <!-- Event Details Box -->
@@ -245,13 +252,17 @@ export async function sendFrontmanAssignmentEmail(input: SendFrontmanAssignmentI
     headers['X-PM-Message-Stream'] = process.env.POSTMARK_STREAM;
   }
 
+  const textPasswordLine = tempPassword
+    ? `Temporary Password: ${tempPassword}`
+    : 'Password: Use your existing account password';
+
   try {
     const info = await transporter.sendMail({
       from: getMailFrom(),
       to,
       subject: `Your Frontman Login Credentials for ${eventName}`,
       html: htmlContent,
-      text: `Hello ${fullName},\n\nYou have been assigned as a Frontman (Ticket Scanner) for "${eventName}" by ${organizationName}.\n\nUse the credentials below to log into the EventPro Mobile App:\n\nEmail: ${to}\nTemporary Password: ${tempPassword}\n\nEvent: ${eventName}${eventDate ? `\nDate: ${eventDate}` : ''}${location ? `\nVenue: ${location}` : ''}\n\nBest regards,\nEventPro Team`,
+      text: `Hello ${fullName},\n\nYou have been assigned as a Frontman (Ticket Scanner) for "${eventName}" by ${organizationName}.\n\nUse the credentials below to log into the EventPro Mobile App:\n\nEmail: ${to}\n${textPasswordLine}\n\nEvent: ${eventName}${eventDate ? `\nDate: ${eventDate}` : ''}${location ? `\nVenue: ${location}` : ''}\n\nBest regards,\nEventPro Team`,
       headers,
     });
     console.log(`[SMTP] Frontman assignment email sent successfully to ${to} (Message ID: ${info.messageId})`);

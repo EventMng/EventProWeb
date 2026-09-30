@@ -219,28 +219,13 @@ export default function OrganizerDashboardPage() {
 
       if (res.ok) {
         await fetchEvents();
-        if (data.staffList && data.staffList.length > 1) {
-          setIssuedBulkCredentials(data.staffList);
-        } else if (data.staffList && data.staffList.length === 1) {
-          const single = data.staffList[0];
-          setIssuedFrontmanCredentials({
-            name: single.fullName,
-            email: single.email,
-            tempPassword: single.tempPassword,
-          });
-        } else if (data.tempPassword) {
-          const singleMember = orgMembers.find((m) => selectedStaffIds.includes(m.id));
-          setIssuedFrontmanCredentials({
-            name: data.staff?.fullName || singleMember?.fullName || 'Frontman',
-            email: data.staff?.email || singleMember?.email || '',
-            tempPassword: data.tempPassword,
-          });
-        } else {
-          setAssignSuccessMsg(`Successfully assigned member(s) to ${assignTargetEvent.name}`);
-          setTimeout(() => setAssignSuccessMsg(null), 5000);
-          setShowAssignStaffModal(false);
-          setSelectedStaffIds([]);
-        }
+        const successMsg = data.emailSent
+          ? `Successfully assigned member(s) to ${assignTargetEvent.name}. Login credentials have been sent via email.`
+          : `Successfully assigned member(s) to ${assignTargetEvent.name}.`;
+        setAssignSuccessMsg(successMsg);
+        setTimeout(() => setAssignSuccessMsg(null), 5000);
+        setShowAssignStaffModal(false);
+        setSelectedStaffIds([]);
       } else {
         setAssignError(data.error ?? 'Failed to assign member(s) to event.');
       }
@@ -272,7 +257,6 @@ export default function OrganizerDashboardPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchEvents is the standard mount-time data load (async, sets state only after the fetch resolves); this isn't the synchronous-render-loop pattern the rule targets.
     fetchEvents();
   }, []);
 
