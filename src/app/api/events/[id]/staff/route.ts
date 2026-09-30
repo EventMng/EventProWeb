@@ -209,11 +209,14 @@ export async function POST(
         include: { organizations: { select: { id: true } } },
       });
 
-      let tempPassword: string = generateTempPassword();
-      const passwordHash = await hashPassword(tempPassword);
+      const isPrivileged =
+        Boolean(targetUser && targetUser.organizationId === user.organizationId && (targetUser.role === "ORGANIZER" || targetUser.role === "ORG_ADMIN"));
+      const hasActivePassword = Boolean(targetUser?.passwordHash && !targetUser?.isTemporaryPassword);
+      const tempPassword = isPrivileged || hasActivePassword ? undefined : generateTempPassword();
+      const passwordHash = tempPassword ? await hashPassword(tempPassword) : undefined;
 
       if (targetUser) {
-        // Link to organization if not already linked, update password and role
+        // Link to organization if not already linked; preserve existing password for organizers/admins
         const isLinked =
           targetUser.organizationId === user.organizationId ||
           targetUser.organizations.some((o) => o.id === user.organizationId);
@@ -221,9 +224,8 @@ export async function POST(
         targetUser = await db.user.update({
           where: { id: targetUser.id },
           data: {
-            passwordHash,
-            isTemporaryPassword: true,
-            ...( (targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+            ...(!isPrivileged && passwordHash ? { passwordHash, isTemporaryPassword: true } : {}),
+            ...((targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
             ...(!isLinked ? { organizations: { connect: { id: user.organizationId } } } : {}),
           },
           include: { organizations: { select: { id: true } } },
@@ -237,7 +239,7 @@ export async function POST(
             },
             fullName: fullName.trim(),
             email: normalizedEmail,
-            passwordHash,
+            passwordHash: passwordHash || "",
             role: "FRONTMAN",
             isTemporaryPassword: true,
           },
@@ -265,6 +267,7 @@ export async function POST(
               email: true,
               imageUrl: true,
               isTemporaryPassword: true,
+              role: true,
             },
           },
         },
@@ -304,15 +307,24 @@ export async function POST(
           imageUrl: assignment.user.imageUrl,
           isTemporaryPassword: assignment.user.isTemporaryPassword,
           assignedAt: assignment.assignedAt,
-          role: "FRONTMAN",
+          role: assignment.user.role || "FRONTMAN",
         },
-        tempPassword,
+        emailSent: Boolean(tempPassword),
       });
     }
 
     // --- Bulk Assignment (all: true or userIds: string[]) ---
     if (all === true || Array.isArray(userIds)) {
-      let targetUsers: { id: string; fullName: string; email: string; imageUrl: string | null; role?: string }[] = [];
+      let targetUsers: {
+        id: string;
+        fullName: string;
+        email: string;
+        imageUrl: string | null;
+        role?: string;
+        organizationId?: string | null;
+        isTemporaryPassword?: boolean;
+        passwordHash?: string;
+      }[] = [];
 
       if (all === true) {
         // Fetch all organization users not yet assigned to this event
@@ -329,7 +341,7 @@ export async function POST(
               { organizations: { some: { id: user.organizationId } } },
             ],
           },
-          select: { id: true, fullName: true, email: true, imageUrl: true, role: true },
+          select: { id: true, fullName: true, email: true, imageUrl: true, role: true, organizationId: true, isTemporaryPassword: true, passwordHash: true },
         });
 
         targetUsers = orgUsers.filter((u) => !assignedIds.has(u.id));
@@ -343,7 +355,7 @@ export async function POST(
               { organizations: { some: { id: user.organizationId } } },
             ],
           },
-          select: { id: true, fullName: true, email: true, imageUrl: true, role: true },
+          select: { id: true, fullName: true, email: true, imageUrl: true, role: true, organizationId: true, isTemporaryPassword: true, passwordHash: true },
         });
       }
 
@@ -358,24 +370,32 @@ export async function POST(
       const assignedList = [];
 
       for (const targetUser of targetUsers) {
-        const tempPassword = generateTempPassword();
-        const passwordHash = await hashPassword(tempPassword);
+        const isPrivileged =
+          targetUser.organizationId === user.organizationId &&
+          (targetUser.role === "ORGANIZER" || targetUser.role === "ORG_ADMIN");
+        const hasActivePassword = Boolean(targetUser.passwordHash && !targetUser.isTemporaryPassword);
+        const tempPassword = isPrivileged || hasActivePassword ? undefined : generateTempPassword();
+        const passwordHash = tempPassword ? await hashPassword(tempPassword) : undefined;
 
-        const updatedUser = await db.user.update({
-          where: { id: targetUser.id },
-          data: {
-            passwordHash,
-            isTemporaryPassword: true,
-            ...( (targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
-          },
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            imageUrl: true,
-            role: true,
-          },
-        });
+        let updatedUser = targetUser;
+        if (!isPrivileged) {
+          updatedUser = await db.user.update({
+            where: { id: targetUser.id },
+            data: {
+              ...(passwordHash ? { passwordHash, isTemporaryPassword: true } : {}),
+              ...((targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+            },
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              imageUrl: true,
+              role: true,
+              organizationId: true,
+              isTemporaryPassword: true,
+            },
+          });
+        }
 
         await db.eventFrontman.upsert({
           where: {
@@ -419,8 +439,7 @@ export async function POST(
           id: updatedUser.id,
           fullName: updatedUser.fullName,
           email: updatedUser.email,
-          role: updatedUser.role || "FRONTMAN",
-          tempPassword,
+          role: updatedUser.role || (isPrivileged ? targetUser.role : "FRONTMAN"),
         });
       }
 
@@ -451,26 +470,39 @@ export async function POST(
       return NextResponse.json({ error: "User not found in organization" }, { status: 404 });
     }
 
-    // Generate temporary password for frontman mobile login
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    const isPrivileged =
+      targetUser.organizationId === user.organizationId &&
+      (targetUser.role === "ORGANIZER" || targetUser.role === "ORG_ADMIN");
+    const hasActivePassword = Boolean(targetUser.passwordHash && !targetUser.isTemporaryPassword);
+    const tempPassword = isPrivileged || hasActivePassword ? undefined : generateTempPassword();
+    const passwordHash = tempPassword ? await hashPassword(tempPassword) : undefined;
 
-    const updatedUser = await db.user.update({
-      where: { id: targetUser.id },
-      data: {
-        passwordHash,
-        isTemporaryPassword: true,
-        ...( (targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
-      },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        imageUrl: true,
-        isTemporaryPassword: true,
-        role: true,
-      },
-    });
+    let updatedUser: {
+      id: string;
+      fullName: string;
+      email: string;
+      imageUrl: string | null;
+      isTemporaryPassword: boolean;
+      role: string;
+    } = targetUser;
+
+    if (!isPrivileged) {
+      updatedUser = await db.user.update({
+        where: { id: targetUser.id },
+        data: {
+          ...(passwordHash ? { passwordHash, isTemporaryPassword: true } : {}),
+          ...((targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          imageUrl: true,
+          isTemporaryPassword: true,
+          role: true,
+        },
+      });
+    }
 
     // Assign to event
     const assignment = await db.eventFrontman.upsert({
@@ -532,9 +564,9 @@ export async function POST(
         imageUrl: assignment.user.imageUrl,
         isTemporaryPassword: assignment.user.isTemporaryPassword,
         assignedAt: assignment.assignedAt,
-        role: assignment.user.role || "FRONTMAN",
+        role: assignment.user.role || (isPrivileged ? targetUser.role : "FRONTMAN"),
       },
-      tempPassword,
+      emailSent: Boolean(tempPassword),
     });
   } catch (error) {
     console.error("Failed to assign staff to event:", error);
@@ -562,6 +594,16 @@ export async function DELETE(
 
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    // validate Organization Ownership (BOLA/IDOR)
+    const event = await db.event.findUnique({
+      where: { id:eventId },
+      select: { id: true, organizationId: true},
+    });
+
+    if (!event || event.organizationId !== user.organizationId) {
+      return NextResponse.json({ error: "Event not found"}, { status: 404});
     }
 
     await db.eventFrontman.deleteMany({

@@ -33,7 +33,11 @@ function toMemberItem(m: ApiMember): MemberItem {
   };
 }
 
-export function MembersPageContent() {
+interface MembersPageContent {
+  userRole?: 'ORG_ADMIN' | 'ORGANIZER';
+}
+
+export function MembersPageContent({ userRole = 'ORG_ADMIN' }: MembersPageContent) {
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -153,27 +157,31 @@ export function MembersPageContent() {
             </p>
           </div>
 
-          <button
-            onClick={() => setShowAddModal(true)}
-            style={{
-              backgroundColor: '#2563EB',
-              color: '#FFFFFF',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontFamily: "'Urbanist', sans-serif",
-              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
-            Add Member
-          </button>
+          {/* hide button from organizers - only for admin */}
+          {(userRole === 'ORG_ADMIN') && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{
+                backgroundColor: '#2563EB',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontFamily: "'Urbanist', sans-serif",
+                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
+              Add Member
+            </button>
+          )}
+
         </div>
 
         {/* Table Container */}
@@ -193,50 +201,50 @@ export function MembersPageContent() {
           )}
 
           {!isLoading && !loadError && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
-                <th style={{ padding: '12px 16px' }}>NAME</th>
-                <th style={{ padding: '12px 16px' }}>EMAIL (USERNAME)</th>
-                <th style={{ padding: '12px 16px' }}>APP CREDENTIALS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((member) => {
-                return (
-                  <tr key={member.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                    <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {member.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- imageUrl can be a data: URI (uploaded via FileReader below) or an external URL from other flows; next/image needs a known host allowlist or `unoptimized` we haven't set up yet.
-                        <img src={member.imageUrl} alt={member.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px' }}>
-                          {member.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      {member.name}
-                    </td>
-                    <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
-                      {member.email}
-                    </td>
-                    <td style={{ padding: '18px 16px' }}>
-                      {member.tempPassword ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ backgroundColor: '#FEF3C7', color: '#D97706', padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700' }}>
-                            Temp Pass: {member.tempPassword}
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: '12px', fontWeight: '700', letterSpacing: '0.05em' }}>
+                  <th style={{ padding: '12px 16px' }}>NAME</th>
+                  <th style={{ padding: '12px 16px' }}>EMAIL (USERNAME)</th>
+                  <th style={{ padding: '12px 16px' }}>APP CREDENTIALS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((member) => {
+                  return (
+                    <tr key={member.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                      <td style={{ padding: '18px 16px', fontWeight: '700', color: '#111827', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {member.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- imageUrl can be a data: URI (uploaded via FileReader below) or an external URL from other flows; next/image needs a known host allowlist or `unoptimized` we haven't set up yet.
+                          <img src={member.imageUrl} alt={member.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '14px' }}>
+                            {member.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {member.name}
+                      </td>
+                      <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
+                        {member.email}
+                      </td>
+                      <td style={{ padding: '18px 16px' }}>
+                        {member.tempPassword ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ backgroundColor: '#FEF3C7', color: '#D97706', padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700' }}>
+                              Temp Pass: {member.tempPassword}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ backgroundColor: '#ECFDF5', color: '#059669', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: '700' }}>
+                            Active
                           </span>
-                        </div>
-                      ) : (
-                        <span style={{ backgroundColor: '#ECFDF5', color: '#059669', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: '700' }}>
-                          Active
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
         </div>
 

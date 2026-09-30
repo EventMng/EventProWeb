@@ -70,5 +70,6 @@ export async function POST(request: NextRequest) {
     participant: registration.participant,
     event: registration.event,
     attended: registration.attended,
+    ticketType: registration.ticketType,
   });
 }
