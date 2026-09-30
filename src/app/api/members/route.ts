@@ -157,10 +157,8 @@ export async function POST(request: NextRequest) {
       tempPassword,
     });
 
-    // tempPassword is only ever returned here — it isn't stored in plaintext.
-    // Also emailed directly to the new member above (emailSent reflects
-    // whether that actually went out, e.g. false if SMTP isn't configured).
-    return NextResponse.json({ member, tempPassword, emailSent }, { status: 201 });
+    // Credentials are sent directly via email. Do not expose tempPassword in HTTP response.
+    return NextResponse.json({ member, emailSent }, { status: 201 });
   } catch (error) {
     console.error("Failed to add member:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
