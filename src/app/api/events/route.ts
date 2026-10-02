@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
       name: event.name,
       location: event.location,
       eventDate: event.eventDate,
-      status: deriveEventStatus(event.eventDate, now),
+      endDate: event.endDate,
+      status: deriveEventStatus(event.eventDate, event.endDate, now),
       totalRegistrations: event.registrations.length,
       checkedInCount: event.registrations.filter((r) => r.attended).length,
     }));
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
-    const { name, location, eventDate } = body;
+    const { name, location, eventDate, endDate } = body;
 
     if (typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'name is required.' }, { status: 400 });
@@ -100,6 +101,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid eventDate format.' }, { status: 400 });
     }
 
+    let parsedEndDate: Date | null = null;
+    if (endDate) {
+      parsedEndDate = new Date(endDate);
+      if (isNaN(parsedEndDate.getTime())) {
+        return NextResponse.json({ error: 'Invalid endDate format.' }, { status: 400 });
+      }
+      if (parsedEndDate.getTime() < parsedDate.getTime()) {
+        return NextResponse.json({ error: 'Event end date & time cannot be before the start date & time.' }, { status: 400 });
+      }
+    }
+
     const event = await db.event.create({
       data: {
         organizationId: user.organizationId,
@@ -107,6 +119,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         location: typeof location === 'string' && location.trim() ? location.trim() : null,
         eventDate: parsedDate,
+        endDate: parsedEndDate,
       },
     });
 
@@ -118,7 +131,8 @@ export async function POST(request: NextRequest) {
           name: event.name,
           location: event.location,
           eventDate: event.eventDate,
-          status: deriveEventStatus(event.eventDate, new Date()),
+          endDate: event.endDate,
+          status: deriveEventStatus(event.eventDate, event.endDate, new Date()),
         },
       },
       { status: 201 }

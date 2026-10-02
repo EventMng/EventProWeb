@@ -11,6 +11,7 @@ interface EventListItem {
   name: string;
   location: string | null;
   eventDate: string;
+  endDate?: string | null;
   status: string;
   totalRegistrations: number;
   checkedInCount: number;
@@ -35,6 +36,7 @@ export default function OrganizerDashboardPage() {
   const [eventName, setEventName] = useState('');
   const [eventLocation, setEventLocation] = useState('');
   const [eventDateStr, setEventDateStr] = useState('');
+  const [endDateStr, setEndDateStr] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -265,6 +267,11 @@ export default function OrganizerDashboardPage() {
     e.preventDefault();
     if (!eventName || !eventDateStr) return;
 
+    if (endDateStr && new Date(endDateStr).getTime() < new Date(eventDateStr).getTime()) {
+      setCreateError('Event end date & time cannot be before start date & time.');
+      return;
+    }
+
     setCreating(true);
     setCreateError(null);
 
@@ -279,6 +286,7 @@ export default function OrganizerDashboardPage() {
           name: eventName,
           location: eventLocation,
           eventDate: new Date(eventDateStr).toISOString(),
+          endDate: endDateStr ? new Date(endDateStr).toISOString() : null,
         }),
       });
 
@@ -292,6 +300,7 @@ export default function OrganizerDashboardPage() {
       setEventName('');
       setEventLocation('');
       setEventDateStr('');
+      setEndDateStr('');
       setShowCreateModal(false);
 
       // Refresh events
@@ -622,10 +631,20 @@ export default function OrganizerDashboardPage() {
                       </Link>
                     </td>
                     <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
-                      {new Date(event.eventDate).toLocaleString(undefined, {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
+                      <div style={{ fontWeight: '600', color: '#111827' }}>
+                        {new Date(event.eventDate).toLocaleString(undefined, {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </div>
+                      {event.endDate && (
+                        <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+                          to {new Date(event.endDate).toLocaleString(undefined, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '18px 16px', color: '#4B5563', fontSize: '13px' }}>
                       {event.location || '—'}
@@ -1629,14 +1648,14 @@ export default function OrganizerDashboardPage() {
         {/* Create Event Modal */}
         {showCreateModal && (
           <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-            <form onSubmit={handleCreateEvent} style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '440px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <form onSubmit={handleCreateEvent} style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '480px', maxWidth: '92vw', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
               <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Create New Event</h3>
               <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 16px 0' }}>
                 You will be set as the creator/organizer of this event.
               </p>
 
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
-                Event Name
+                Event Name *
               </label>
               <input
                 type="text"
@@ -1658,16 +1677,32 @@ export default function OrganizerDashboardPage() {
                 style={{ width: '100%', padding: '10px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: "'Urbanist', sans-serif" }}
               />
 
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
-                Event Date & Time
-              </label>
-              <input
-                type="datetime-local"
-                value={eventDateStr}
-                onChange={(e) => setEventDateStr(e.target.value)}
-                required
-                style={{ width: '100%', padding: '10px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: "'Urbanist', sans-serif" }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                    Start Date & Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={eventDateStr}
+                    onChange={(e) => setEventDateStr(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '13px', outline: 'none', fontFamily: "'Urbanist', sans-serif" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '6px' }}>
+                    End Date & Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={endDateStr}
+                    min={eventDateStr || undefined}
+                    onChange={(e) => setEndDateStr(e.target.value)}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '13px', outline: 'none', fontFamily: "'Urbanist', sans-serif" }}
+                  />
+                </div>
+              </div>
 
               {createError && (
                 <div style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '14px' }}>

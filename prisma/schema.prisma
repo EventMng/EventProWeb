@@ -57,6 +57,7 @@ model Event {
   name           String
   location       String?
   eventDate      DateTime @map("event_date")
+  endDate        DateTime? @map("end_date")
   createdAt      DateTime @default(now()) @map("created_at")
 
   frontmen      EventFrontman[]
