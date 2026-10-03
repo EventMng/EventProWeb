@@ -58,12 +58,15 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   // "Send Passes", "Import CSV", "Add participant", and "Assign Frontman"
   // are available for Organizers, Org Admins, and System Admins.
-  const [viewerRole, setViewerRole] = useState<string | null>(null);
+  const [viewerRole, setViewerRole] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('eventpro_user_role');
+    }
+    return null;
+  });
 
   useEffect(() => {
     let cancelled = false;
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('eventpro_user_role') : null;
-    if (saved) setViewerRole(saved);
 
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
