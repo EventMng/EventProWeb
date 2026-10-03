@@ -75,6 +75,7 @@ export function SettingsPageContent() {
 
   // Your Account — email
   const [email, setEmail] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailSuccess, setEmailSuccess] = useState(false);
@@ -142,7 +143,7 @@ export function SettingsPageContent() {
       const res = await fetch('/api/auth/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, currentPassword: accountPassword }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -150,6 +151,7 @@ export function SettingsPageContent() {
         return;
       }
       setEmail(data.user.email);
+      setAccountPassword('');
       setEmailSuccess(true);
     } catch {
       setEmailError('Unable to reach the server. Check your connection and try again.');
@@ -252,7 +254,7 @@ export function SettingsPageContent() {
               {emailError && <Banner kind="error" message={emailError} />}
               {emailSuccess && <Banner kind="success" message="Email updated." />}
 
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '16px' }}>
                 <label style={labelStyle}>Email</label>
                 <input
                   type="email"
@@ -260,6 +262,19 @@ export function SettingsPageContent() {
                   onChange={(e) => { setEmail(e.target.value); setEmailSuccess(false); }}
                   required
                   autoComplete="email"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={labelStyle}>Current Password</label>
+                <input
+                  type="password"
+                  value={accountPassword}
+                  onChange={(e) => { setAccountPassword(e.target.value); setEmailSuccess(false); }}
+                  placeholder="Enter current password to confirm"
+                  required
+                  autoComplete="current-password"
                   style={inputStyle}
                 />
               </div>
