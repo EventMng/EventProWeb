@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { parseParticipantCSV } from '@/lib/csv-parser';
 import { Sidebar } from '@/components/shared/Sidebar';
 
 interface RegistrationItem {
@@ -74,14 +73,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           localStorage.setItem('eventpro_user_role', data.user.role);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
   }, []);
 
   const canManageEvent = !viewerRole || (viewerRole !== 'FRONTMAN' && viewerRole !== 'MEMBER');
-  
+
   // Event Staff states
   const [eventStaff, setEventStaff] = useState<EventStaffItem[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrgMemberOption[]>([]);
@@ -91,14 +90,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [assignError, setAssignError] = useState<string | null>(null);
   const [issuedFrontmanCredentials, setIssuedFrontmanCredentials] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
 
-  // Modal states
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showCsvModal, setShowCsvModal] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [ticketType, setTicketType] = useState('General');
-  const [csvText, setCsvText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [isSendingPasses, setIsSendingPasses] = useState(false);
   const [sendSuccessMsg, setSendSuccessMsg] = useState<string | null>(null);
 
@@ -248,50 +239,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const handleAddParticipant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/participants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, fullName, email, ticketType }),
-      });
-      if (res.ok) {
-        setFullName('');
-        setEmail('');
-        setTicketType('General');
-        setShowAddModal(false);
-        fetchParticipants();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
-  const handleCsvImport = async () => {
-    const parsed = parseParticipantCSV(csvText);
-    if (parsed.length === 0) return alert('No valid CSV records found');
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/participants/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, participants: parsed }),
-      });
-      if (res.ok) {
-        setCsvText('');
-        setShowCsvModal(false);
-        fetchParticipants();
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const filtered = registrations.filter((item) => {
     const query = search.trim().toLowerCase();
@@ -410,49 +358,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>
                 {isSendingPasses ? 'Sending Passes...' : selectedIds.length > 0 ? `Send Passes (${selectedIds.length})` : 'Send Passes (Invitations)'}
-              </button>
-
-              <button
-                onClick={() => setShowCsvModal(true)}
-                style={{
-                  border: '1.5px solid #E5E7EB',
-                  backgroundColor: '#FFFFFF',
-                  color: '#374151',
-                  padding: '12px 20px',
-                  borderRadius: '12px',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  fontFamily: "'Urbanist', sans-serif",
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload_file</span>
-                Import CSV
-              </button>
-
-              <button
-                onClick={() => setShowAddModal(true)}
-                style={{
-                  backgroundColor: '#2563EB',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  padding: '12px 24px',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontFamily: "'Urbanist', sans-serif",
-                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-                Add participant
               </button>
             </div>
           )}
@@ -845,81 +750,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
 
-        {/* Add Modal */}
-        {canManageEvent && showAddModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-            <form onSubmit={handleAddParticipant} style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Add New Participant</h3>
-              <input
-                type="text"
-                placeholder="Full Name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                style={{ width: '100%', padding: '12px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
-              />
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={{ width: '100%', padding: '12px 14px', marginBottom: '14px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none' }}
-              />
-              <select
-                value={ticketType}
-                onChange={(e) => setTicketType(e.target.value)}
-                style={{ width: '100%', padding: '12px 14px', marginBottom: '20px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px', outline: 'none', backgroundColor: '#FFFFFF', color: '#111827' }}
-              >
-                <option value="General">General</option>
-                <option value="VIP">VIP</option>
-                <option value="Staff">Staff</option>
-              </select>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
-                <button type="submit" disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                  {submitting ? 'Adding...' : 'Add Participant'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
-        {/* CSV Import Modal */}
-        {canManageEvent && showCsvModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-            <div style={{ backgroundColor: '#FFFFFF', padding: '28px', borderRadius: '16px', width: '520px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '800', color: '#111827' }}>Import Participants via CSV</h3>
-              <p style={{ fontSize: '14px', color: '#6B7280', margin: '0 0 12px 0' }}>Upload a .csv file, or paste its content below (fullName, email, ticketType):</p>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => setCsvText(String(reader.result ?? ''));
-                  reader.readAsText(file);
-                  e.target.value = '';
-                }}
-                style={{ width: '100%', marginBottom: '14px', fontSize: '13px', color: '#4B5563' }}
-              />
-              <textarea
-                rows={6}
-                placeholder="fullName,email,ticketType&#10;Nadeesha Perera,nadeesha@example.com,VIP&#10;Kasun Fernando,kasun@example.com,Regular"
-                value={csvText}
-                onChange={(e) => setCsvText(e.target.value)}
-                style={{ width: '100%', padding: '12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '13px', fontFamily: 'monospace', marginBottom: '20px', outline: 'none' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button onClick={() => setShowCsvModal(false)} style={{ padding: '10px 18px', border: '1px solid #D1D5DB', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', backgroundColor: '#FFF' }}>Cancel</button>
-                <button onClick={handleCsvImport} disabled={submitting} style={{ padding: '10px 18px', backgroundColor: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}>
-                  {submitting ? 'Importing...' : 'Import Participants'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

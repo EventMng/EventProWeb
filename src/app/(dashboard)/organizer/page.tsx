@@ -877,12 +877,9 @@ export default function OrganizerDashboardPage() {
                               backgroundColor: '#FFFFFF',
                             }}
                           >
-                            <option value="General">General Admission</option>
-                            <option value="VIP">VIP Pass</option>
-                            <option value="Early Bird">Early Bird</option>
-                            <option value="Student">Student</option>
-                            <option value="Speaker">Speaker</option>
-                            <option value="Press">Press / Media</option>
+                            <option value="General">General</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Staff">Staff</option>
                           </select>
                         </div>
                       );
