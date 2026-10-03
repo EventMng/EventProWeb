@@ -73,13 +73,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
-    // POST/api/members - add a member (or link existing user) to organization
-    const roleCheck = requireRole(user, ["ORG_ADMIN"]);
+    // POST /api/members - add a member (or link existing user) to organization
+    const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
     const { fullName, email, imageUrl } = body;
     const role = body.role || "MEMBER";
+
+    if (user.role === 'ORGANIZER' && role === 'ORG_ADMIN') {
+      return NextResponse.json({ error: 'FORBIDDEN: Organizers cannot create Org Admins' }, { status: 403 });
+    }
 
     if (typeof fullName !== "string" || !fullName.trim()) {
       return NextResponse.json({ error: "fullName is required." }, { status: 400 });
