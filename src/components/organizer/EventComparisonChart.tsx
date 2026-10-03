@@ -18,15 +18,19 @@ interface EventComparisonChartProps {
 }
 
 export function EventComparisonChart({ events, loading = false }: EventComparisonChartProps) {
-  const [chartFilter, setChartFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
+  const [chartFilter, setChartFilter] = useState<'ALL' | 'ACTIVE' | 'UPCOMING' | 'COMPLETED'>('ALL');
   const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
 
   const chartEvents = events.filter((e) => {
+    const status = e.status.toLowerCase();
     if (chartFilter === 'ACTIVE') {
-      return e.status.toLowerCase() === 'live' || e.status.toLowerCase() === 'upcoming';
+      return status === 'live' || status === 'active';
+    }
+    if (chartFilter === 'UPCOMING') {
+      return status === 'upcoming';
     }
     if (chartFilter === 'COMPLETED') {
-      return e.status.toLowerCase() === 'completed';
+      return status === 'completed';
     }
     return true;
   });
@@ -138,11 +142,16 @@ export function EventComparisonChart({ events, loading = false }: EventCompariso
               gap: '2px',
             }}
           >
-            {(['ALL', 'ACTIVE', 'COMPLETED'] as const).map((f) => (
+            {([
+              { id: 'ALL', label: 'All Events' },
+              { id: 'ACTIVE', label: 'Active' },
+              { id: 'UPCOMING', label: 'Upcoming' },
+              { id: 'COMPLETED', label: 'Completed' },
+            ] as const).map(({ id, label }) => (
               <button
-                key={f}
+                key={id}
                 type="button"
-                onClick={() => setChartFilter(f)}
+                onClick={() => setChartFilter(id)}
                 style={{
                   border: 'none',
                   padding: '5px 12px',
@@ -150,14 +159,14 @@ export function EventComparisonChart({ events, loading = false }: EventCompariso
                   fontSize: '12px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  backgroundColor: chartFilter === f ? '#FFFFFF' : 'transparent',
-                  color: chartFilter === f ? '#7C3AED' : '#6B7280',
-                  boxShadow: chartFilter === f ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  backgroundColor: chartFilter === id ? '#FFFFFF' : 'transparent',
+                  color: chartFilter === id ? '#7C3AED' : '#6B7280',
+                  boxShadow: chartFilter === id ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
                   fontFamily: "'Urbanist', sans-serif",
                   transition: 'all 0.15s ease',
                 }}
               >
-                {f === 'ALL' ? 'All Events' : f === 'ACTIVE' ? 'Active / Upcoming' : 'Completed'}
+                {label}
               </button>
             ))}
           </div>
