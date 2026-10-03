@@ -46,7 +46,7 @@ export default function OrganizerDashboardPage() {
   const [assignMode, setAssignMode] = useState<'SELECT' | 'ALL' | 'NEWCOMER'>('SELECT');
   const [memberFilterType, setMemberFilterType] = useState<'ALL' | 'AVAILABLE' | 'ASSIGNED'>('ALL');
   const [orgMembers, setOrgMembers] = useState<OrgMemberOption[]>([]);
-  const [assignedStaffIds, setAssignedStaffIds] = useState<string[]>([]);
+  const [registeredParticipantEmails, setRegisteredParticipantEmails] = useState<string[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [memberSearchFilter, setMemberSearchFilter] = useState('');
@@ -75,7 +75,7 @@ export default function OrganizerDashboardPage() {
     qrDataUrl?: string;
   } | null>(null);
 
-  // Open modal and fetch members + already assigned staff
+  // Open modal and fetch members + already registered participants
   const handleOpenAssignModal = async (event: EventListItem) => {
     setAssignTargetEvent(event);
     setSelectedStaffIds([]);
@@ -93,9 +93,9 @@ export default function OrganizerDashboardPage() {
     setLoadingMembers(true);
 
     try {
-      const [membersRes, staffRes] = await Promise.all([
+      const [membersRes, participantsRes] = await Promise.all([
         fetch('/api/members'),
-        fetch(`/api/events/${event.id}/staff`),
+        fetch(`/api/participants?eventId=${event.id}`),
       ]);
 
       if (membersRes.ok) {
@@ -111,14 +111,17 @@ export default function OrganizerDashboardPage() {
         );
       }
 
-      if (staffRes.ok) {
-        const staffData: { id: string }[] = await staffRes.json();
-        setAssignedStaffIds(staffData.map((s) => s.id));
+      if (participantsRes.ok) {
+        const participantsData = await participantsRes.json();
+        const emails: string[] = (participantsData || [])
+          .map((p: { participant?: { email?: string } }) => p.participant?.email?.toLowerCase() || '')
+          .filter(Boolean);
+        setRegisteredParticipantEmails(emails);
       } else {
-        setAssignedStaffIds([]);
+        setRegisteredParticipantEmails([]);
       }
     } catch (err) {
-      console.error('Failed to fetch members/staff:', err);
+      console.error('Failed to fetch members/participants:', err);
     } finally {
       setLoadingMembers(false);
     }
@@ -131,13 +134,13 @@ export default function OrganizerDashboardPage() {
     );
   };
 
-  // Submit Member Assignment or Participant Registration
+  // Submit Member Registration or Newcomer Participant Registration
   const handleAssignStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignTargetEvent) return;
 
     if (assignMode === 'SELECT' && selectedStaffIds.length === 0) {
-      setAssignError('Please select at least one member to assign.');
+      setAssignError('Please select at least one member to register as participant.');
       return;
     }
 
@@ -205,34 +208,47 @@ export default function OrganizerDashboardPage() {
     setAssignError(null);
 
     try {
-      let payload: Record<string, unknown>;
+      let membersToRegister: OrgMemberOption[] = [];
       if (assignMode === 'ALL') {
-        payload = { all: true };
+        membersToRegister = orgMembers.filter(
+          (m) => !registeredParticipantEmails.includes(m.email.toLowerCase())
+        );
       } else {
-        payload = { userIds: selectedStaffIds };
+        membersToRegister = orgMembers.filter((m) => selectedStaffIds.includes(m.id));
       }
 
-      const res = await fetch(`/api/events/${assignTargetEvent.id}/staff`, {
+      if (membersToRegister.length === 0) {
+        setAssignError('No members available to register.');
+        setIsAssigningStaff(false);
+        return;
+      }
+
+      const res = await fetch('/api/participants/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          eventId: assignTargetEvent.id,
+          participants: membersToRegister.map((m) => ({
+            fullName: m.fullName,
+            email: m.email,
+            ticketType: 'General',
+          })),
+        }),
       });
       const data = await res.json();
 
       if (res.ok) {
         await fetchEvents();
-        const successMsg = data.emailSent
-          ? `Successfully assigned member(s) to ${assignTargetEvent.name}. Login credentials have been sent via email.`
-          : `Successfully assigned member(s) to ${assignTargetEvent.name}.`;
+        const successMsg = `Successfully registered ${membersToRegister.length} participant(s) for ${assignTargetEvent.name}. Entry tickets and invitations have been sent.`;
         setAssignSuccessMsg(successMsg);
         setTimeout(() => setAssignSuccessMsg(null), 5000);
         setShowAssignStaffModal(false);
         setSelectedStaffIds([]);
       } else {
-        setAssignError(data.error ?? 'Failed to assign member(s) to event.');
+        setAssignError(data.error ?? 'Failed to register participants.');
       }
     } catch (err) {
-      setAssignError(err instanceof Error ? err.message : 'Failed to assign staff.');
+      setAssignError(err instanceof Error ? err.message : 'Failed to register participants.');
     } finally {
       setIsAssigningStaff(false);
     }
@@ -763,7 +779,7 @@ export default function OrganizerDashboardPage() {
                       }}
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>group_add</span>
-                      All Available ({orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length})
+                      All Available ({orgMembers.filter((m) => !registeredParticipantEmails.includes(m.email.toLowerCase())).length})
                     </button>
 
                     <button
@@ -800,8 +816,8 @@ export default function OrganizerDashboardPage() {
                       <div style={{ marginTop: '8px' }}>Loading organization members...</div>
                     </div>
                   ) : (() => {
-                    const availableMembers = orgMembers.filter((m) => !assignedStaffIds.includes(m.id));
-                    const assignedMembers = orgMembers.filter((m) => assignedStaffIds.includes(m.id));
+                    const availableMembers = orgMembers.filter((m) => !registeredParticipantEmails.includes(m.email.toLowerCase()));
+                    const registeredMembers = orgMembers.filter((m) => registeredParticipantEmails.includes(m.email.toLowerCase()));
 
                     if (assignMode === 'NEWCOMER') {
                       return (
@@ -928,15 +944,17 @@ export default function OrganizerDashboardPage() {
                           m.email.toLowerCase().includes(memberSearchFilter.toLowerCase())
                       );
 
-                      // Filter by status tab (All / Available / Assigned)
+                      // Filter by status tab (All / Available / Registered)
                       const filteredMembers = searchFiltered.filter((m) => {
-                        const isAssigned = assignedStaffIds.includes(m.id);
-                        if (memberFilterType === 'AVAILABLE') return !isAssigned;
-                        if (memberFilterType === 'ASSIGNED') return isAssigned;
+                        const isRegistered = registeredParticipantEmails.includes(m.email.toLowerCase());
+                        if (memberFilterType === 'AVAILABLE') return !isRegistered;
+                        if (memberFilterType === 'ASSIGNED') return isRegistered;
                         return true;
                       });
 
-                      const availableFiltered = filteredMembers.filter((m) => !assignedStaffIds.includes(m.id));
+                      const availableFiltered = filteredMembers.filter(
+                        (m) => !registeredParticipantEmails.includes(m.email.toLowerCase())
+                      );
 
                       return (
                         <div style={{ marginBottom: '20px' }}>
@@ -1070,7 +1088,7 @@ export default function OrganizerDashboardPage() {
                                   cursor: 'pointer',
                                 }}
                               >
-                                Already Assigned ({assignedMembers.length})
+                                Already Registered ({registeredMembers.length})
                               </button>
                             </div>
 
@@ -1095,14 +1113,14 @@ export default function OrganizerDashboardPage() {
                               </div>
                             ) : (
                               filteredMembers.map((m) => {
-                                const isAssigned = assignedStaffIds.includes(m.id);
+                                const isRegistered = registeredParticipantEmails.includes(m.email.toLowerCase());
                                 const isChecked = selectedStaffIds.includes(m.id);
 
                                 return (
                                   <div
                                     key={m.id}
                                     onClick={() => {
-                                      if (!isAssigned) {
+                                      if (!isRegistered) {
                                         handleToggleMemberSelect(m.id);
                                       }
                                     }}
@@ -1112,18 +1130,18 @@ export default function OrganizerDashboardPage() {
                                       justifyContent: 'space-between',
                                       padding: '10px 14px',
                                       borderBottom: '1px solid #F3F4F6',
-                                      backgroundColor: isAssigned
+                                      backgroundColor: isRegistered
                                         ? '#F9FAFB'
                                         : isChecked
                                         ? '#F5F3FF'
                                         : '#FFFFFF',
-                                      cursor: isAssigned ? 'default' : 'pointer',
-                                      opacity: isAssigned ? 0.85 : 1,
+                                      cursor: isRegistered ? 'default' : 'pointer',
+                                      opacity: isRegistered ? 0.85 : 1,
                                       transition: 'background-color 0.12s ease',
                                     }}
                                   >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      {!isAssigned ? (
+                                      {!isRegistered ? (
                                         <input
                                           type="checkbox"
                                           checked={isChecked}
@@ -1153,8 +1171,8 @@ export default function OrganizerDashboardPage() {
                                             width: '32px',
                                             height: '32px',
                                             borderRadius: '50%',
-                                            backgroundColor: isAssigned ? '#E5E7EB' : isChecked ? '#7C3AED' : '#E0E7FF',
-                                            color: isAssigned ? '#4B5563' : isChecked ? '#FFFFFF' : '#4338CA',
+                                            backgroundColor: isRegistered ? '#E5E7EB' : isChecked ? '#7C3AED' : '#E0E7FF',
+                                            color: isRegistered ? '#4B5563' : isChecked ? '#FFFFFF' : '#4338CA',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -1194,7 +1212,7 @@ export default function OrganizerDashboardPage() {
                                     </div>
 
                                     <div>
-                                      {isAssigned ? (
+                                      {isRegistered ? (
                                         <span
                                           style={{
                                             backgroundColor: '#ECFDF5',
@@ -1209,7 +1227,7 @@ export default function OrganizerDashboardPage() {
                                             gap: '3px',
                                           }}
                                         >
-                                          ✓ Assigned to Event
+                                          ✓ Registered Participant
                                         </span>
                                       ) : isChecked ? (
                                         <span
@@ -1247,16 +1265,16 @@ export default function OrganizerDashboardPage() {
                           <div style={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '12px', padding: '16px' }}>
                             <div style={{ fontSize: '13px', fontWeight: '700', color: '#111827', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#7C3AED' }}>how_to_reg</span>
-                              Assign all {availableMembers.length} available member(s) at once:
+                              Register all {availableMembers.length} available member(s) as participants:
                             </div>
                             {availableMembers.length === 0 ? (
                               <p style={{ fontSize: '13px', color: '#D97706', margin: 0, fontWeight: '600' }}>
-                                All {orgMembers.length} organization members are already assigned to this event!
+                                All {orgMembers.length} organization members are already registered as participants for this event!
                               </p>
                             ) : (
                               <>
                                 <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 12px 0' }}>
-                                  Every available member listed below will be assigned to <strong>{assignTargetEvent.name}</strong> for event duties and mobile scanning.
+                                  Every available member listed below will be registered as a participant for <strong>{assignTargetEvent.name}</strong> and issued an entry ticket.
                                 </p>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '140px', overflowY: 'auto', padding: '4px 0' }}>
                                   {availableMembers.map((m) => (
@@ -1332,7 +1350,7 @@ export default function OrganizerDashboardPage() {
                           isAssigningStaff ||
                           loadingMembers ||
                           (assignMode === 'SELECT' && selectedStaffIds.length === 0) ||
-                          (assignMode === 'ALL' && orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length === 0) ||
+                          (assignMode === 'ALL' && orgMembers.filter((m) => !registeredParticipantEmails.includes(m.email.toLowerCase())).length === 0) ||
                           (assignMode === 'NEWCOMER' && (!newcomerFullName.trim() || !newcomerEmail.trim()))
                         }
                         style={{
@@ -1347,7 +1365,7 @@ export default function OrganizerDashboardPage() {
                             isAssigningStaff ||
                             loadingMembers ||
                             (assignMode === 'SELECT' && selectedStaffIds.length === 0) ||
-                            (assignMode === 'ALL' && orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length === 0) ||
+                            (assignMode === 'ALL' && orgMembers.filter((m) => !registeredParticipantEmails.includes(m.email.toLowerCase())).length === 0) ||
                             (assignMode === 'NEWCOMER' && (!newcomerFullName.trim() || !newcomerEmail.trim()))
                               ? 0.6
                               : 1,
@@ -1361,14 +1379,14 @@ export default function OrganizerDashboardPage() {
                           {assignMode === 'ALL' ? 'group_add' : assignMode === 'NEWCOMER' ? 'how_to_reg' : 'person_add'}
                         </span>
                         {isAssigningStaff
-                          ? (assignMode === 'NEWCOMER' ? 'Registering...' : 'Assigning...')
+                          ? (assignMode === 'NEWCOMER' ? 'Registering...' : 'Registering...')
                           : assignMode === 'NEWCOMER'
                           ? 'Register Participant & Issue Ticket'
                           : assignMode === 'ALL'
-                          ? `Add All (${orgMembers.filter((m) => !assignedStaffIds.includes(m.id)).length}) Members`
+                          ? `Register All (${orgMembers.filter((m) => !registeredParticipantEmails.includes(m.email.toLowerCase())).length}) Participants`
                           : selectedStaffIds.length > 0
-                          ? `Add Selected (${selectedStaffIds.length}) Member${selectedStaffIds.length === 1 ? '' : 's'}`
-                          : 'Add Member(s)'}
+                          ? `Register Selected (${selectedStaffIds.length}) Participant${selectedStaffIds.length === 1 ? '' : 's'}`
+                          : 'Register Participant(s)'}
                       </button>
                     </div>
                   </div>
