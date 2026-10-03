@@ -1,4 +1,4 @@
-import { randomBytes, scrypt, timingSafeEqual } from 'crypto';
+import { randomBytes, randomInt, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 
 const scryptAsync = promisify(scrypt);
@@ -19,7 +19,32 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   return timingSafeEqual(keyBuffer, derivedKey);
 }
 
-export function generateTempPassword(): string {
-  const code = randomBytes(3).toString('hex').toUpperCase();
-  return `Temp#${code}`;
+const UPPERCASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const LOWERCASE = 'abcdefghijklmnopqrstuvwxyz';
+const NUMBERS = '0123456789';
+const SYMBOLS = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+const ALL_CHARS = UPPERCASE + LOWERCASE + NUMBERS + SYMBOLS;
+
+export function generateTempPassword(length = 14): string {
+  const minLength = Math.max(12, length);
+  const required = [
+    UPPERCASE[randomInt(0, UPPERCASE.length)],
+    LOWERCASE[randomInt(0, LOWERCASE.length)],
+    NUMBERS[randomInt(0, NUMBERS.length)],
+    SYMBOLS[randomInt(0, SYMBOLS.length)],
+  ];
+
+  const remainingLength = minLength - required.length;
+  const remaining: string[] = [];
+  for (let i = 0; i < remainingLength; i++) {
+    remaining.push(ALL_CHARS[randomInt(0, ALL_CHARS.length)]);
+  }
+
+  const combined = [...required, ...remaining];
+  for (let i = combined.length - 1; i > 0; i--) {
+    const j = randomInt(0, i + 1);
+    [combined[i], combined[j]] = [combined[j], combined[i]];
+  }
+
+  return combined.join('');
 }
