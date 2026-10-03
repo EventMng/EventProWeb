@@ -25,7 +25,16 @@ interface OrgMemberOption {
   imageUrl?: string | null;
 }
 
+interface UserProfile {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  organizationName: string;
+}
+
 export default function OrganizerDashboardPage() {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -257,11 +266,7 @@ export default function OrganizerDashboardPage() {
   // Fetch events list
   const fetchEvents = async () => {
     try {
-      const res = await fetch('/api/events', {
-        headers: {
-          'x-dev-role': 'ORGANIZER',
-        },
-      });
+      const res = await fetch('/api/events');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setEvents(data);
@@ -276,6 +281,14 @@ export default function OrganizerDashboardPage() {
 
   useEffect(() => {
     fetchEvents();
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) {
+          setUserProfile(data.user);
+        }
+      })
+      .catch((err) => console.error('Failed to load user profile:', err));
   }, []);
 
   // Handle Event Creation
@@ -296,7 +309,6 @@ export default function OrganizerDashboardPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-dev-role': 'ORGANIZER',
         },
         body: JSON.stringify({
           name: eventName,
@@ -450,7 +462,7 @@ export default function OrganizerDashboardPage() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>apartment</span>
-                Apex Events Ltd
+                {userProfile?.organizationName || 'Apex Events Ltd'}
               </span>
 
               {/* Organizer Role Pill */}
@@ -470,15 +482,15 @@ export default function OrganizerDashboardPage() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>assignment_ind</span>
-                Organizer
+                {userProfile?.role === 'ORG_ADMIN' ? 'Admin' : 'Organizer'}
               </span>
             </div>
 
             <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
-              Good morning, Kamal Perera
+              Good morning, {userProfile?.fullName || 'Kamal Perera'}
             </h1>
             <p style={{ fontSize: '14px', color: '#6B7280', margin: '4px 0 0 0', fontWeight: '600' }}>
-              Logged in as Event Organizer for Apex Events Ltd.
+              Logged in as Event {userProfile?.role === 'ORG_ADMIN' ? 'Admin' : 'Organizer'} for {userProfile?.organizationName || 'Apex Events Ltd'}.
             </p>
           </div>
 
