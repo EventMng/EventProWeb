@@ -4,6 +4,8 @@ import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
 import { loadOwnedRegistration } from "@/lib/participants";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // PATCH /api/participants/[registrationId] — edit a roster entry's details
 export async function PATCH(
   request: NextRequest,
@@ -30,8 +32,35 @@ export async function PATCH(
     const { fullName, email, ticketType } = body;
 
     const participantData: { fullName?: string; email?: string } = {};
-    if (typeof fullName === 'string' && fullName.trim()) participantData.fullName = fullName;
-    if (typeof email === 'string' && email.trim()) participantData.email = email;
+
+    if (typeof fullName === 'string' && fullName.trim()) {
+      participantData.fullName = fullName.trim();
+    }
+
+    if (typeof email === 'string' && email.trim()) {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!EMAIL_REGEX.test(normalizedEmail)) {
+        return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+      }
+
+      // Check for email duplication within the organization
+      const existingParticipant = await db.participant.findFirst({
+        where: {
+          email: normalizedEmail,
+          organizationId: registration.event.organizationId,
+          NOT: { id: registration.participantId },
+        },
+      });
+
+      if (existingParticipant) {
+        return NextResponse.json(
+          { error: 'A participant with this email already exists in this organization' },
+          { status: 409 }
+        );
+      }
+
+      participantData.email = normalizedEmail;
+    }
 
     if (Object.keys(participantData).length > 0) {
       await db.participant.update({
@@ -41,7 +70,9 @@ export async function PATCH(
     }
 
     const registrationData: { ticketType?: string } = {};
-    if (typeof ticketType === 'string' && ticketType.trim()) registrationData.ticketType = ticketType;
+    if (typeof ticketType === 'string' && ticketType.trim()) {
+      registrationData.ticketType = ticketType.trim();
+    }
 
     const updated = await db.eventRegistration.update({
       where: { id: registrationId },
