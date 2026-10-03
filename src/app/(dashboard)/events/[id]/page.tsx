@@ -23,6 +23,7 @@ interface EventDetail {
   name: string;
   location: string | null;
   eventDate: string;
+  endDate?: string | null;
   status: 'Live' | 'Upcoming' | 'Completed';
 }
 
@@ -374,6 +375,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })}
+                  {eventInfo.endDate && ` – ${new Date(eventInfo.endDate).toLocaleString(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}`}
                 </span>
                 <span>•</span>
                 <span>{eventInfo.location || '—'}</span>

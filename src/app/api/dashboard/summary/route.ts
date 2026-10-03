@@ -25,13 +25,13 @@ export async function GET(request: NextRequest) {
 
     const events = await db.event.findMany({
       where: { organizationId: user.organizationId },
-      select: { id: true, name: true, eventDate: true },
+      select: { id: true, name: true, eventDate: true, endDate: true },
     });
 
-    const liveNow = events.filter((e) => deriveEventStatus(e.eventDate, now) === "Live").length;
+    const liveNow = events.filter((e) => deriveEventStatus(e.eventDate, e.endDate, now) === "Live").length;
 
     const upcomingEvents = events
-      .filter((e) => deriveEventStatus(e.eventDate, now) === "Upcoming")
+      .filter((e) => deriveEventStatus(e.eventDate, e.endDate, now) === "Upcoming")
       .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
 
     const nextEvent = upcomingEvents[0]

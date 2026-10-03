@@ -58,7 +58,8 @@ export async function GET(
       name: event.name,
       location: event.location,
       eventDate: event.eventDate,
-      status: deriveEventStatus(event.eventDate),
+      endDate: event.endDate,
+      status: deriveEventStatus(event.eventDate, event.endDate),
       totalRegistrations: event.registrations.length,
       checkedInCount: event.registrations.filter((r) => r.attended).length,
     });
