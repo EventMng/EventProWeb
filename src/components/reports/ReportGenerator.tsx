@@ -8,7 +8,7 @@ interface Event {
   eventDate: string;
 }
 
-export function ReportGenerator() {
+export function ReportGenerator({ viewerRole }: { viewerRole?: string | null }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState('');
@@ -48,23 +48,25 @@ export function ReportGenerator() {
         Export & Generate Reports
       </div>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: (viewerRole === 'ORG_ADMIN' || viewerRole === 'SYSTEM_ADMIN') ? 'repeat(2, 1fr)' : '1fr', gap: '24px' }}>
         
-        {/* Full Organization Report Card */}
-        <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px solid #F3F4F6', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827' }}>Full Organization Report</h3>
-            <p style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#6B7280', lineHeight: 1.5 }}>
-              Download a comprehensive CSV overview of all events hosted by your organization, including aggregate registrations and total attendance rates.
-            </p>
+        {/* Full Organization Report Card (Admins Only) */}
+        {(viewerRole === 'ORG_ADMIN' || viewerRole === 'SYSTEM_ADMIN') && (
+          <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px solid #F3F4F6', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: '#111827' }}>Full Organization Report</h3>
+              <p style={{ margin: '8px 0 16px 0', fontSize: '13px', color: '#6B7280', lineHeight: 1.5 }}>
+                Download a comprehensive CSV overview of all events hosted by your organization, including aggregate registrations and total attendance rates.
+              </p>
+            </div>
+            <button 
+              onClick={handleDownloadFull}
+              style={{ backgroundColor: '#111827', color: 'white', padding: '10px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '14px', border: 'none', cursor: 'pointer', alignSelf: 'flex-start' }}
+            >
+              Download Full Report (CSV)
+            </button>
           </div>
-          <button 
-            onClick={handleDownloadFull}
-            style={{ backgroundColor: '#111827', color: 'white', padding: '10px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '14px', border: 'none', cursor: 'pointer', alignSelf: 'flex-start' }}
-          >
-            Download Full Report (CSV)
-          </button>
-        </div>
+        )}
 
         {/* Event-by-Event Report Card */}
         <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '12px', border: '1px solid #F3F4F6', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

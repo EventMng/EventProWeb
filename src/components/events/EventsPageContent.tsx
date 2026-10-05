@@ -295,9 +295,9 @@ export function EventsPageContent() {
           </table>
         </div>
 
-        {/* Report Generation Section (Only for Admins) */}
-        {(viewerRole === 'ORG_ADMIN' || viewerRole === 'SYSTEM_ADMIN') && (
-          <ReportGenerator />
+        {/* Report Generation Section (For Admins and Organizers) */}
+        {(viewerRole === 'ORG_ADMIN' || viewerRole === 'SYSTEM_ADMIN' || viewerRole === 'ORGANIZER') && (
+          <ReportGenerator viewerRole={viewerRole} />
         )}
 
         {/* Create Event Modal */}
