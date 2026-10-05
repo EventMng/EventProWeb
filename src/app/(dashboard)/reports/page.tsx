@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/shared/Sidebar';
+import { ReportGenerator } from '@/components/reports/ReportGenerator';
 
 interface DashboardSummary {
   liveNow: number;
@@ -152,6 +153,9 @@ export default function ReportsPage() {
             </div>
           </div>
         </div>
+
+        {/* Report Generation Section */}
+        <ReportGenerator />
       </main>
     </div>
   );
