@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/shared/Sidebar';
 import Link from 'next/link';
+import { ReportGenerator } from '@/components/reports/ReportGenerator';
 
 interface EventListItem {
   id: string;
@@ -293,6 +294,11 @@ export function EventsPageContent() {
             </tbody>
           </table>
         </div>
+
+        {/* Report Generation Section (For Admins and Organizers) */}
+        {(viewerRole === 'ORG_ADMIN' || viewerRole === 'SYSTEM_ADMIN' || viewerRole === 'ORGANIZER') && (
+          <ReportGenerator viewerRole={viewerRole} />
+        )}
 
         {/* Create Event Modal */}
         {showCreateModal && (
