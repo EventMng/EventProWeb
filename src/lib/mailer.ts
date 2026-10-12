@@ -273,3 +273,82 @@ export async function sendFrontmanAssignmentEmail(input: SendFrontmanAssignmentI
   }
 }
 
+export interface SendPasswordResetEmailInput {
+  to: string;
+  fullName: string;
+  resetUrl: string;
+}
+
+export async function sendPasswordResetEmail(input: SendPasswordResetEmailInput): Promise<boolean> {
+  const { to, fullName, resetUrl } = input;
+
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'live.smtp.mailtrap.io',
+    port: port,
+    secure: port === 465,
+    auth: {
+      user: process.env.SMTP_USER || 'api',
+      pass: process.env.SMTP_PASS || '',
+    },
+  });
+
+  const htmlContent = `
+    <div style="font-family: 'Inter', Arial, sans-serif; max-width: 500px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+      <div style="background-color: #032042; padding: 24px; text-align: center; color: #ffffff;">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 800;">EventPro</h2>
+        <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Password Reset Request</p>
+      </div>
+      <div style="padding: 24px;">
+        <h3 style="margin: 0 0 8px 0; color: #111827; font-size: 18px;">Hello, ${fullName}!</h3>
+        <p style="color: #4b5563; font-size: 14px; line-height: 1.5; margin-bottom: 20px;">
+          We received a request to reset your EventPro password. Click the button below to set a new password. This link is valid for <strong>30 minutes</strong>.
+        </p>
+
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${resetUrl}" style="background-color: #2563EB; color: #ffffff; padding: 12px 28px; font-weight: 700; font-size: 14px; text-decoration: none; border-radius: 8px; display: inline-block;">
+            Reset Password
+          </a>
+        </div>
+
+        <p style="color: #6b7280; font-size: 12px; line-height: 1.5; margin-bottom: 16px;">
+          If the button above does not work, copy and paste this link into your browser:<br/>
+          <a href="${resetUrl}" style="color: #2563EB; word-break: break-all;">${resetUrl}</a>
+        </p>
+
+        <div style="border-top: 1px solid #f3f4f6; padding-top: 16px; margin-top: 20px;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0; line-height: 1.5;">
+            If you did not request a password reset, you can safely ignore this email — your account remains completely secure.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (!process.env.SMTP_USER) {
+    console.warn(`SMTP is not configured. Password reset email not sent to ${to}. Reset URL: ${resetUrl}`);
+    return true;
+  }
+
+  const headers: Record<string, string> = {};
+  if (process.env.POSTMARK_STREAM) {
+    headers['X-PM-Message-Stream'] = process.env.POSTMARK_STREAM;
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: getMailFrom(),
+      to,
+      subject: 'Reset your EventPro password',
+      html: htmlContent,
+      text: `Hello ${fullName},\n\nWe received a request to reset your EventPro password. Visit the following link within 30 minutes to set a new password:\n\n${resetUrl}\n\nIf you did not request this, you can safely ignore this email.\n\nBest regards,\nEventPro Team`,
+      headers,
+    });
+    console.log(`[SMTP] Password reset email sent successfully to ${to} (Message ID: ${info.messageId})`);
+    return true;
+  } catch (error) {
+    console.error(`[SMTP] Failed to send password reset email to ${to}:`, error);
+    return false;
+  }
+}
+
