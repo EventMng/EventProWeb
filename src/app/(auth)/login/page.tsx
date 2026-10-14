@@ -212,13 +212,12 @@ export default function LoginPage() {
           </div>
 
           <div style={{ textAlign: 'right', marginBottom: '24px' }}>
-            <a
-              href="#"
-              onClick={(e) => e.preventDefault()}
+            <Link
+              href="/forgot-password"
               style={{ fontSize: '13px', color: '#2563EB', fontWeight: '700', textDecoration: 'none' }}
             >
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           <button

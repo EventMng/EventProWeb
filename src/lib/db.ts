@@ -31,12 +31,14 @@ function createPrismaClient() {
   });
 }
 
-type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;
+type ExtendedPrismaClient = PrismaClient;
 
 const globalForPrisma = globalThis as unknown as { prisma?: ExtendedPrismaClient };
 
-export const db = globalForPrisma.prisma ?? createPrismaClient();
+export const db = (globalForPrisma.prisma ?? createPrismaClient()) as unknown as PrismaClient;
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = db;
+  globalForPrisma.prisma = db as ExtendedPrismaClient;
 }
+
+
