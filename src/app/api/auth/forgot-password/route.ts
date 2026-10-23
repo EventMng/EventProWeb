@@ -34,12 +34,12 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     // Delete any existing reset tokens for this email to invalidate old ones
-    await (db as any).passwordResetToken.deleteMany({
+    await db.passwordResetToken.deleteMany({
       where: { email: normalizedEmail },
     });
 
     // Save token in DB
-    await (db as any).passwordResetToken.create({
+    await db.passwordResetToken.create({
       data: {
         email: normalizedEmail,
         token,

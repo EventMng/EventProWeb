@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Look up token record
-    const resetRecord = await (db as any).passwordResetToken.findUnique({
+    const resetRecord = await db.passwordResetToken.findUnique({
       where: { token },
     });
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Check expiration
     if (new Date() > resetRecord.expiresAt) {
       // Clean up expired token
-      await (db as any).passwordResetToken.delete({
+      await db.passwordResetToken.delete({
         where: { id: resetRecord.id },
       }).catch(() => {});
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidate the token so it cannot be used again
-    await (db as any).passwordResetToken.delete({
+    await db.passwordResetToken.delete({
       where: { id: resetRecord.id },
     }).catch(() => {});
 
