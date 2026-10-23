@@ -16,9 +16,38 @@ export async function GET(request: NextRequest) {
     const roleCheck = requireRole(user, ['ORG_ADMIN', 'ORGANIZER', 'FRONTMAN']);
     if (roleCheck) return roleCheck;
 
-    const whereClause: Prisma.EventWhereInput = { organizationId: user.organizationId };
-    if (user.role === "FRONTMAN") {
-      whereClause.frontmen = { some: { userId: user.id } };
+    const userRecord = await db.user.findUnique({
+      where: { id: user.id },
+      select: {
+        organizationId: true,
+        organizations: { select: { id: true } },
+      },
+    });
+
+    const orgIds = Array.from(
+      new Set(
+        [
+          user.organizationId,
+          ...(userRecord?.organizations?.map((o) => o.id) || []),
+        ].filter(Boolean) as string[]
+      )
+    );
+
+    const assignedOnly = request.nextUrl.searchParams.get('assignedOnly') === 'true';
+
+    let whereClause: Prisma.EventWhereInput;
+    if (user.role === 'FRONTMAN' || assignedOnly) {
+      // Frontman (or mobile frontman scanner app) ONLY sees events they are assigned to
+      whereClause = {
+        frontmen: { some: { userId: user.id } },
+      };
+    } else if (user.role === 'SYSTEM_ADMIN') {
+      whereClause = {};
+    } else {
+      // Admins / Organizers on Web portal see their organization events
+      whereClause = {
+        organizationId: { in: orgIds },
+      };
     }
 
     const events = await db.event.findMany({
@@ -33,7 +62,8 @@ export async function GET(request: NextRequest) {
       name: event.name,
       location: event.location,
       eventDate: event.eventDate,
-      status: deriveEventStatus(event.eventDate, now),
+      endDate: event.endDate,
+      status: deriveEventStatus(event.eventDate, event.endDate, now),
       totalRegistrations: event.registrations.length,
       checkedInCount: event.registrations.filter((r) => r.attended).length,
     }));
@@ -57,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
-    const { name, location, eventDate } = body;
+    const { name, location, eventDate, endDate } = body;
 
     if (typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ error: 'name is required.' }, { status: 400 });
@@ -71,6 +101,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid eventDate format.' }, { status: 400 });
     }
 
+    let parsedEndDate: Date | null = null;
+    if (endDate) {
+      parsedEndDate = new Date(endDate);
+      if (isNaN(parsedEndDate.getTime())) {
+        return NextResponse.json({ error: 'Invalid endDate format.' }, { status: 400 });
+      }
+      if (parsedEndDate.getTime() < parsedDate.getTime()) {
+        return NextResponse.json({ error: 'Event end date & time cannot be before the start date & time.' }, { status: 400 });
+      }
+    }
+
     const event = await db.event.create({
       data: {
         organizationId: user.organizationId,
@@ -78,6 +119,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         location: typeof location === 'string' && location.trim() ? location.trim() : null,
         eventDate: parsedDate,
+        endDate: parsedEndDate,
       },
     });
 
@@ -89,7 +131,8 @@ export async function POST(request: NextRequest) {
           name: event.name,
           location: event.location,
           eventDate: event.eventDate,
-          status: deriveEventStatus(event.eventDate, new Date()),
+          endDate: event.endDate,
+          status: deriveEventStatus(event.eventDate, event.endDate, new Date()),
         },
       },
       { status: 201 }

@@ -13,7 +13,7 @@ type RegisterResponse = {
     id: string;
     fullName: string;
     email: string;
-    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN';
+    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN' | 'MEMBER';
     organizationId: string;
     isTemporaryPassword: boolean;
     imageUrl: string | null;
@@ -70,7 +70,7 @@ export default function SignupPage() {
 
       // The session cookie is already set httpOnly by the API — no token
       // handling needed here, ORG_ADMIN always lands on the admin dashboard.
-      router.push('/dashboard');
+      router.push('/admin');
     } catch {
       setError('Unable to reach the server. Check your connection and try again.');
     } finally {

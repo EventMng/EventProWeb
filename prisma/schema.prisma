@@ -12,6 +12,7 @@ enum UserRole {
   ORG_ADMIN
   ORGANIZER
   FRONTMAN
+  MEMBER
 }
 
 model Organization {
@@ -56,6 +57,7 @@ model Event {
   name           String
   location       String?
   eventDate      DateTime @map("event_date")
+  endDate        DateTime? @map("end_date")
   createdAt      DateTime @default(now()) @map("created_at")
 
   frontmen      EventFrontman[]
@@ -108,4 +110,15 @@ model EventRegistration {
 
   @@unique([eventId, participantId])
   @@map("event_registrations")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("password_reset_tokens")
 }

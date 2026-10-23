@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/authz";
 import { hashPassword, generateTempPassword } from "@/lib/password";
 import { sendMemberInvitation } from "@/lib/mailer";
 
-const ASSIGNABLE_ROLES = ["ORGANIZER", "FRONTMAN"] as const;
+const ASSIGNABLE_ROLES = ["ORGANIZER", "FRONTMAN", "MEMBER", "ORG_ADMIN"] as const;
 
 // GET /api/members — list this organization's members
 export async function GET(request: NextRequest) {
@@ -15,10 +15,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
+    // GET/api/members - list this organization's members
     const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
     if (roleCheck) return roleCheck;
 
-    const members = await db.user.findMany({
+    const rawMembers = await db.user.findMany({
       where: {
         OR: [
           { organizationId: user.organizationId },
@@ -33,8 +34,28 @@ export async function GET(request: NextRequest) {
         imageUrl: true,
         isTemporaryPassword: true,
         createdAt: true,
+        organizationId: true,
       },
       orderBy: { createdAt: "asc" },
+    });
+
+    // In this organization, any user linked from another organization, or any user whose
+    // role was temporarily set to FRONTMAN for an event, is a general MEMBER of this organization.
+    const members = rawMembers.map((m) => {
+      let effectiveRole = m.role as string;
+      if (m.organizationId !== user.organizationId || m.role === "FRONTMAN") {
+        effectiveRole = "MEMBER";
+      }
+
+      return {
+        id: m.id,
+        fullName: m.fullName,
+        email: m.email,
+        role: effectiveRole,
+        imageUrl: m.imageUrl,
+        isTemporaryPassword: m.isTemporaryPassword,
+        createdAt: m.createdAt,
+      };
     });
 
     return NextResponse.json(members);
@@ -52,12 +73,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     }
 
+    // POST /api/members - add a member (or link existing user) to organization
     const roleCheck = requireRole(user, ["ORG_ADMIN", "ORGANIZER"]);
     if (roleCheck) return roleCheck;
 
     const body = await request.json();
     const { fullName, email, imageUrl } = body;
-    const role = body.role || "FRONTMAN";
+    const role = body.role || "MEMBER";
+
+    if (user.role === 'ORGANIZER' && role === 'ORG_ADMIN') {
+      return NextResponse.json({ error: 'FORBIDDEN: Organizers cannot create Org Admins' }, { status: 403 });
+    }
 
     if (typeof fullName !== "string" || !fullName.trim()) {
       return NextResponse.json({ error: "fullName is required." }, { status: 400 });
@@ -106,11 +132,24 @@ export async function POST(request: NextRequest) {
           imageUrl: true,
           isTemporaryPassword: true,
           createdAt: true,
+          organizationId: true,
         },
       });
 
+      // When added to this organization, their effective role in this organization is MEMBER,
+      // never inheriting external FRONTMAN or ORGANIZER roles from other organizations.
+      const effectiveRole = role === "ORGANIZER" && updatedMember.organizationId === user.organizationId
+        ? "ORGANIZER"
+        : "MEMBER";
+
       return NextResponse.json(
-        { member: updatedMember, isExistingUser: true },
+        {
+          member: {
+            ...updatedMember,
+            role: effectiveRole,
+          },
+          isExistingUser: true,
+        },
         { status: 200 }
       );
     }
@@ -155,10 +194,8 @@ export async function POST(request: NextRequest) {
       tempPassword,
     });
 
-    // tempPassword is only ever returned here — it isn't stored in plaintext.
-    // Also emailed directly to the new member above (emailSent reflects
-    // whether that actually went out, e.g. false if SMTP isn't configured).
-    return NextResponse.json({ member, tempPassword, emailSent }, { status: 201 });
+    // Credentials are sent directly via email. Do not expose tempPassword in HTTP response.
+    return NextResponse.json({ member, emailSent }, { status: 201 });
   } catch (error) {
     console.error("Failed to add member:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

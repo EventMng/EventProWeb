@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
   }
 
-  const roleCheck = requireRole(user, ['FRONTMAN']);
+  const roleCheck = requireRole(user, ['FRONTMAN', 'ORGANIZER', 'ORG_ADMIN']);
   if (roleCheck) return roleCheck;
 
   const { registrationId } = await request.json();
@@ -19,10 +19,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'INVALID_TOKEN' }, { status: 400 });
   }
 
-  const registration = await loadOwnedRegistration(registrationId, user.organizationId);
+  const registration = await loadOwnedRegistration(registrationId, user.organizationId, user.id);
 
   if (!registration) {
     return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
+  }
+
+  // Business Rule: Frontman can ONLY mark attendance for events explicitly assigned to them
+  if (user.role === 'FRONTMAN') {
+    const isAssigned = await db.eventFrontman.findUnique({
+      where: {
+        eventId_userId: {
+          eventId: registration.eventId,
+          userId: user.id,
+        },
+      },
+    });
+
+    if (!isAssigned) {
+      return NextResponse.json({
+        error: 'NOT_ASSIGNED',
+        message: 'You are only allowed to mark attendance for events assigned to you.',
+      }, { status: 403 });
+    }
   }
 
   if (registration.attended) {

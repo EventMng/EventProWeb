@@ -20,7 +20,7 @@ export async function POST(
     if (roleCheck) return roleCheck;
 
     const { registrationId } = await params;
-    const registration = await loadOwnedRegistration(registrationId, user.organizationId);
+    const registration = await loadOwnedRegistration(registrationId, user.organizationId, user.id);
 
     if (!registration) {
       return NextResponse.json({ error: 'Registration not found' }, { status: 404 });

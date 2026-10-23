@@ -17,10 +17,16 @@ export interface QRTokenPayload {
 
 
 const getSecretKey = (): Uint8Array => {
-  const secret = process.env.QR_TOKEN_SECRET ||
-    "eventpro_default_qr_secret_key_2026";
+  const secret = process.env.QR_TOKEN_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "test") {
+      return new TextEncoder().encode("test_qr_secret_key_only_for_testing_purposes");
+    }
+    throw new Error(
+      "FATAL: QR_TOKEN_SECRET environment variable is not defined. Refusing to sign or verify tokens with insecure fallback."
+    );
+  }
   return new TextEncoder().encode(secret);
-
 };
 
 export async function signQRToken(

@@ -3,6 +3,94 @@ import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { requireRole } from "@/lib/authz";
 import { hashPassword, generateTempPassword } from "@/lib/password";
+import { signQRToken } from "@/lib/qr-token";
+import { sendQRInvitation, sendFrontmanAssignmentEmail } from "@/lib/mailer";
+
+// Helper to ensure member/user is also registered as a participant for the event
+async function ensureEventParticipant(
+  eventId: string,
+  eventOrgId: string,
+  eventName: string,
+  user: { id: string; fullName: string; email: string; imageUrl?: string | null; role?: string },
+  creatorId: string,
+  ticketType?: string
+) {
+  const normalizedEmail = user.email.trim().toLowerCase();
+
+  // 1. Find or create Participant record
+  let participant = await db.participant.findFirst({
+    where: {
+      email: normalizedEmail,
+      organizationId: eventOrgId,
+    },
+  });
+
+  if (!participant) {
+    participant = await db.participant.create({
+      data: {
+        organizationId: eventOrgId,
+        fullName: user.fullName.trim(),
+        email: normalizedEmail,
+        imageUrl: user.imageUrl ?? null,
+        createdById: creatorId,
+      },
+    });
+  }
+
+  // 2. Check if already registered for this event
+  const existingReg = await db.eventRegistration.findUnique({
+    where: {
+      eventId_participantId: {
+        eventId,
+        participantId: participant.id,
+      },
+    },
+  });
+
+  if (!existingReg) {
+    const regTicketType =
+      ticketType ||
+      (user.role === "ORGANIZER"
+        ? "Organizer"
+        : user.role === "FRONTMAN"
+          ? "Staff"
+          : "General");
+
+    const registration = await db.eventRegistration.create({
+      data: {
+        eventId,
+        participantId: participant.id,
+        ticketType: regTicketType,
+        qrToken: `temp_${Date.now()}_${Math.random()}`,
+      },
+    });
+
+    const qrToken = await signQRToken({
+      registrationId: registration.id,
+      eventId,
+      participantId: participant.id,
+    });
+
+    await db.eventRegistration.update({
+      where: { id: registration.id },
+      data: {
+        qrToken,
+        invitationSentAt: new Date(),
+      },
+    });
+
+    try {
+      await sendQRInvitation({
+        to: normalizedEmail,
+        participantName: user.fullName,
+        eventName: eventName,
+        qrToken,
+      });
+    } catch (e) {
+      console.error("Failed to send QR invitation to assigned member:", e);
+    }
+  }
+}
 
 // GET /api/events/[id]/staff — List members assigned to this event
 export async function GET(
@@ -58,7 +146,7 @@ export async function GET(
   }
 }
 
-// POST /api/events/[id]/staff — Assign member(s) to this event with Event Frontman role
+// POST /api/events/[id]/staff — Assign member(s) to this event with Event Frontman role & register as participants
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -75,12 +163,31 @@ export async function POST(
     const { id: eventId } = await params;
     const event = await db.event.findUnique({
       where: { id: eventId },
-      select: { id: true, organizationId: true },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        eventDate: true,
+        organizationId: true,
+        organization: { select: { name: true } },
+      },
     });
 
     if (!event || event.organizationId !== user.organizationId) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+
+    const formattedEventDate = event?.eventDate
+      ? new Date(event.eventDate).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : undefined;
+    const orgName = event?.organization?.name ?? "Your Organization";
 
     const body = await request.json();
     const { userId, userIds, all, newcomer, newMember } = body;
@@ -88,7 +195,7 @@ export async function POST(
 
     // --- Newcomer Registration and Event Assignment ---
     if (newcomerData) {
-      const { fullName, email } = newcomerData;
+      const { fullName, email, ticketType } = newcomerData;
       if (typeof fullName !== "string" || !fullName.trim()) {
         return NextResponse.json({ error: "fullName is required for newcomer" }, { status: 400 });
       }
@@ -102,11 +209,14 @@ export async function POST(
         include: { organizations: { select: { id: true } } },
       });
 
-      const tempPassword = generateTempPassword();
-      const passwordHash = await hashPassword(tempPassword);
+      const isPrivileged =
+        Boolean(targetUser && targetUser.organizationId === user.organizationId && (targetUser.role === "ORGANIZER" || targetUser.role === "ORG_ADMIN"));
+      const hasActivePassword = Boolean(targetUser?.passwordHash && !targetUser?.isTemporaryPassword);
+      const tempPassword = isPrivileged || hasActivePassword ? undefined : generateTempPassword();
+      const passwordHash = tempPassword ? await hashPassword(tempPassword) : undefined;
 
       if (targetUser) {
-        // Link to organization if not already linked
+        // Link to organization if not already linked; preserve existing password for organizers/admins
         const isLinked =
           targetUser.organizationId === user.organizationId ||
           targetUser.organizations.some((o) => o.id === user.organizationId);
@@ -114,12 +224,9 @@ export async function POST(
         targetUser = await db.user.update({
           where: { id: targetUser.id },
           data: {
-            passwordHash,
-            isTemporaryPassword: true,
-            role: "FRONTMAN",
-            organizations: !isLinked
-              ? { connect: { id: user.organizationId } }
-              : undefined,
+            ...(!isPrivileged && passwordHash ? { passwordHash, isTemporaryPassword: true } : {}),
+            ...((targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+            ...(!isLinked ? { organizations: { connect: { id: user.organizationId } } } : {}),
           },
           include: { organizations: { select: { id: true } } },
         });
@@ -132,7 +239,7 @@ export async function POST(
             },
             fullName: fullName.trim(),
             email: normalizedEmail,
-            passwordHash,
+            passwordHash: passwordHash || "",
             role: "FRONTMAN",
             isTemporaryPassword: true,
           },
@@ -160,10 +267,36 @@ export async function POST(
               email: true,
               imageUrl: true,
               isTemporaryPassword: true,
+              role: true,
             },
           },
         },
       });
+
+      // Ensure registered in participants for this event
+      await ensureEventParticipant(
+        eventId,
+        event.organizationId,
+        event.name,
+        targetUser,
+        user.id,
+        ticketType || "General"
+      );
+
+      // Send frontman mobile app login credentials email
+      try {
+        await sendFrontmanAssignmentEmail({
+          to: targetUser.email,
+          fullName: targetUser.fullName,
+          eventName: event.name,
+          eventDate: formattedEventDate,
+          location: event.location ?? undefined,
+          organizationName: orgName,
+          tempPassword,
+        });
+      } catch (mailErr) {
+        console.error("Failed to send frontman assignment email to newcomer:", mailErr);
+      }
 
       return NextResponse.json({
         message: "New member registered and assigned to event successfully",
@@ -174,15 +307,24 @@ export async function POST(
           imageUrl: assignment.user.imageUrl,
           isTemporaryPassword: assignment.user.isTemporaryPassword,
           assignedAt: assignment.assignedAt,
-          role: "FRONTMAN",
+          role: assignment.user.role || "FRONTMAN",
         },
-        tempPassword,
+        emailSent: Boolean(tempPassword),
       });
     }
 
     // --- Bulk Assignment (all: true or userIds: string[]) ---
     if (all === true || Array.isArray(userIds)) {
-      let targetUsers: { id: string; fullName: string; email: string; imageUrl: string | null }[] = [];
+      let targetUsers: {
+        id: string;
+        fullName: string;
+        email: string;
+        imageUrl: string | null;
+        role?: string;
+        organizationId?: string | null;
+        isTemporaryPassword?: boolean;
+        passwordHash?: string;
+      }[] = [];
 
       if (all === true) {
         // Fetch all organization users not yet assigned to this event
@@ -199,7 +341,7 @@ export async function POST(
               { organizations: { some: { id: user.organizationId } } },
             ],
           },
-          select: { id: true, fullName: true, email: true, imageUrl: true },
+          select: { id: true, fullName: true, email: true, imageUrl: true, role: true, organizationId: true, isTemporaryPassword: true, passwordHash: true },
         });
 
         targetUsers = orgUsers.filter((u) => !assignedIds.has(u.id));
@@ -213,7 +355,7 @@ export async function POST(
               { organizations: { some: { id: user.organizationId } } },
             ],
           },
-          select: { id: true, fullName: true, email: true, imageUrl: true },
+          select: { id: true, fullName: true, email: true, imageUrl: true, role: true, organizationId: true, isTemporaryPassword: true, passwordHash: true },
         });
       }
 
@@ -228,38 +370,76 @@ export async function POST(
       const assignedList = [];
 
       for (const targetUser of targetUsers) {
-        const tempPassword = generateTempPassword();
-        const passwordHash = await hashPassword(tempPassword);
+        const isPrivileged =
+          targetUser.organizationId === user.organizationId &&
+          (targetUser.role === "ORGANIZER" || targetUser.role === "ORG_ADMIN");
+        const hasActivePassword = Boolean(targetUser.passwordHash && !targetUser.isTemporaryPassword);
+        const tempPassword = isPrivileged || hasActivePassword ? undefined : generateTempPassword();
+        const passwordHash = tempPassword ? await hashPassword(tempPassword) : undefined;
 
-        await db.user.update({
-          where: { id: targetUser.id },
-          data: {
-            passwordHash,
-            isTemporaryPassword: true,
-            role: "FRONTMAN",
-          },
-        });
+        let updatedUser = targetUser;
+        if (!isPrivileged) {
+          updatedUser = await db.user.update({
+            where: { id: targetUser.id },
+            data: {
+              ...(passwordHash ? { passwordHash, isTemporaryPassword: true } : {}),
+              ...((targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+            },
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              imageUrl: true,
+              role: true,
+              organizationId: true,
+              isTemporaryPassword: true,
+            },
+          });
+        }
 
         await db.eventFrontman.upsert({
           where: {
             eventId_userId: {
               eventId,
-              userId: targetUser.id,
+              userId: updatedUser.id,
             },
           },
           update: {},
           create: {
             eventId,
-            userId: targetUser.id,
+            userId: updatedUser.id,
           },
         });
 
+        // Also register member as a participant of the event
+        await ensureEventParticipant(
+          eventId,
+          event.organizationId,
+          event.name,
+          updatedUser,
+          user.id
+        );
+
+        // Send frontman mobile app login credentials email
+        try {
+          await sendFrontmanAssignmentEmail({
+            to: updatedUser.email,
+            fullName: updatedUser.fullName,
+            eventName: event.name,
+            eventDate: formattedEventDate,
+            location: event.location ?? undefined,
+            organizationName: orgName,
+            tempPassword,
+          });
+        } catch (mailErr) {
+          console.error("Failed to send frontman assignment email during bulk assignment:", mailErr);
+        }
+
         assignedList.push({
-          id: targetUser.id,
-          fullName: targetUser.fullName,
-          email: targetUser.email,
-          tempPassword,
-          role: "FRONTMAN",
+          id: updatedUser.id,
+          fullName: updatedUser.fullName,
+          email: updatedUser.email,
+          role: updatedUser.role || (isPrivileged ? targetUser.role : "FRONTMAN"),
         });
       }
 
@@ -290,18 +470,39 @@ export async function POST(
       return NextResponse.json({ error: "User not found in organization" }, { status: 404 });
     }
 
-    // Generate temporary password for Frontman app access for this event
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    const isPrivileged =
+      targetUser.organizationId === user.organizationId &&
+      (targetUser.role === "ORGANIZER" || targetUser.role === "ORG_ADMIN");
+    const hasActivePassword = Boolean(targetUser.passwordHash && !targetUser.isTemporaryPassword);
+    const tempPassword = isPrivileged || hasActivePassword ? undefined : generateTempPassword();
+    const passwordHash = tempPassword ? await hashPassword(tempPassword) : undefined;
 
-    await db.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash,
-        isTemporaryPassword: true,
-        role: "FRONTMAN",
-      },
-    });
+    let updatedUser: {
+      id: string;
+      fullName: string;
+      email: string;
+      imageUrl: string | null;
+      isTemporaryPassword: boolean;
+      role: string;
+    } = targetUser;
+
+    if (!isPrivileged) {
+      updatedUser = await db.user.update({
+        where: { id: targetUser.id },
+        data: {
+          ...(passwordHash ? { passwordHash, isTemporaryPassword: true } : {}),
+          ...((targetUser.role as string) === "MEMBER" ? { role: "FRONTMAN" as const } : {}),
+        },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          imageUrl: true,
+          isTemporaryPassword: true,
+          role: true,
+        },
+      });
+    }
 
     // Assign to event
     const assignment = await db.eventFrontman.upsert({
@@ -324,10 +525,35 @@ export async function POST(
             email: true,
             imageUrl: true,
             isTemporaryPassword: true,
+            role: true,
           },
         },
       },
     });
+
+    // Also register member as a participant of the event
+    await ensureEventParticipant(
+      eventId,
+      event.organizationId,
+      event.name,
+      updatedUser,
+      user.id
+    );
+
+    // Send frontman mobile app login credentials email
+    try {
+      await sendFrontmanAssignmentEmail({
+        to: updatedUser.email,
+        fullName: updatedUser.fullName,
+        eventName: event.name,
+        eventDate: formattedEventDate,
+        location: event.location ?? undefined,
+        organizationName: orgName,
+        tempPassword,
+      });
+    } catch (mailErr) {
+      console.error("Failed to send frontman assignment email:", mailErr);
+    }
 
     return NextResponse.json({
       message: "Member assigned to event successfully",
@@ -338,9 +564,9 @@ export async function POST(
         imageUrl: assignment.user.imageUrl,
         isTemporaryPassword: assignment.user.isTemporaryPassword,
         assignedAt: assignment.assignedAt,
-        role: "FRONTMAN",
+        role: assignment.user.role || (isPrivileged ? targetUser.role : "FRONTMAN"),
       },
-      tempPassword,
+      emailSent: Boolean(tempPassword),
     });
   } catch (error) {
     console.error("Failed to assign staff to event:", error);
@@ -368,6 +594,16 @@ export async function DELETE(
 
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    // validate Organization Ownership (BOLA/IDOR)
+    const event = await db.event.findUnique({
+      where: { id:eventId },
+      select: { id: true, organizationId: true},
+    });
+
+    if (!event || event.organizationId !== user.organizationId) {
+      return NextResponse.json({ error: "Event not found"}, { status: 404});
     }
 
     await db.eventFrontman.deleteMany({

@@ -13,7 +13,7 @@ type LoginResponse = {
     id: string;
     fullName: string;
     email: string;
-    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN';
+    role: 'SYSTEM_ADMIN' | 'ORG_ADMIN' | 'ORGANIZER' | 'FRONTMAN' | 'MEMBER';
     organizationId: string;
     isTemporaryPassword: boolean;
     imageUrl: string | null;
@@ -61,14 +61,14 @@ export default function LoginPage() {
       // straight on their dashboard and can change it anytime from
       // Settings > Change Password.
       if (user.role === 'ORG_ADMIN' || user.role === 'SYSTEM_ADMIN') {
-        router.push('/dashboard');
+        router.push('/admin');
       } else if (user.role === 'ORGANIZER') {
         router.push('/organizer');
       } else {
         // FRONTMAN (and any other future role) isn't part of the web
         // role-routing spec — fall back to the org admin dashboard rather
         // than leaving the user stuck on the login page.
-        router.push('/dashboard');
+        router.push('/admin');
       }
     } catch {
       setError('Unable to reach the server. Check your connection and try again.');
@@ -212,13 +212,12 @@ export default function LoginPage() {
           </div>
 
           <div style={{ textAlign: 'right', marginBottom: '24px' }}>
-            <a
-              href="#"
-              onClick={(e) => e.preventDefault()}
+            <Link
+              href="/forgot-password"
               style={{ fontSize: '13px', color: '#2563EB', fontWeight: '700', textDecoration: 'none' }}
             >
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           <button
